@@ -250,6 +250,7 @@ function App() {
   const [saved, setSaved] = useState(false);
   const [activeNav, setActiveNav] = useState("insights");
   const [dismissed, setDismissed] = useState(false);
+  const [resetKey, setResetKey] = useState(0);
   const tabs = [
     { id: "A", label: "Toggle + Drag", desc: "Toggle switches with drag-to-reorder" },
     { id: "B", label: "Click to Rank", desc: "Click to add, arrows to reorder, hover rank to remove" },
@@ -265,7 +266,7 @@ function App() {
 
   const handleSave = () => { setSaved(true); setHasChanges(false); setTimeout(() => setSaved(false), 2000); };
   const handleReset = () => { setShowResetConfirm(true); };
-  const confirmReset = () => { setShowResetConfirm(false); setHasChanges(false); };
+  const confirmReset = () => { setShowResetConfirm(false); setHasChanges(false); setResetKey((k) => k + 1); };
 
   return (
     <div style={{ minHeight: "100vh", background: "#f8fafc" }}>
@@ -354,9 +355,9 @@ function App() {
           </div>
 
           <div onClick={() => { if (!hasChanges) setHasChanges(true); }}>
-            {activeTab === "A" && <OptionA />}
-            {activeTab === "B" && <OptionB />}
-            {activeTab === "C" && <OptionC />}
+            {activeTab === "A" && <OptionA key={resetKey} />}
+            {activeTab === "B" && <OptionB key={resetKey} />}
+            {activeTab === "C" && <OptionC key={resetKey} />}
           </div>
         </div>
       </div>
