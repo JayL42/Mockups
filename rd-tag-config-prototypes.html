@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Returns Drivers Tag Configuration — Design Options</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f8fafc; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState } = React;
+
+const DEFAULT_CATEGORIES = [
+  { id: "assortment", label: "Assortment", description: "Product mix, inventory depth, and category balance" },
+  { id: "customer_experience", label: "Customer Experience", description: "Shopping journey, PDP accuracy, and satisfaction" },
+  { id: "operations", label: "Operations", description: "Fulfillment, logistics, and warehouse issues" },
+  { id: "marketing", label: "Marketing", description: "Promotional impact, channel attribution, and campaigns" },
+  { id: "product_design", label: "Product Design", description: "Material, construction, and design quality" },
+  { id: "product_quality", label: "Product Quality", description: "Defects, damage, and manufacturing issues" },
+  { id: "size_fit", label: "Size & Fit", description: "Sizing accuracy, fit consistency, and grading" },
+];
+
+const ROLE_PRESELECTED = ["assortment", "customer_experience", "operations"];
+
+// OPTION A: Toggle + Drag
+function OptionA() {
+  const [categories, setCategories] = useState(() =>
+    DEFAULT_CATEGORIES.map((c) => ({ ...c, enabled: ROLE_PRESELECTED.includes(c.id) }))
+  );
+  const [dragItem, setDragItem] = useState(null);
+  const [dragOverItem, setDragOverItem] = useState(null);
+
+  const enabled = categories.filter((c) => c.enabled);
+  const disabled = categories.filter((c) => !c.enabled);
+
+  const toggle = (id) => {
+    setCategories((prev) => prev.map((c) => (c.id === id ? { ...c, enabled: !c.enabled } : c)));
+  };
+
+  const handleDragStart = (idx) => setDragItem(idx);
+  const handleDragOver = (e, idx) => { e.preventDefault(); setDragOverItem(idx); };
+  const handleDrop = () => {
+    if (dragItem === null || dragOverItem === null || dragItem === dragOverItem) {
+      setDragItem(null); setDragOverItem(null); return;
+    }
+    const enabledIds = enabled.map((c) => c.id);
+    const [moved] = enabledIds.splice(dragItem, 1);
+    enabledIds.splice(dragOverItem, 0, moved);
+    setCategories((prev) => {
+      const map = {}; prev.forEach((c) => (map[c.id] = c));
+      const reordered = enabledIds.map((id) => map[id]);
+      const rest = prev.filter((c) => !c.enabled);
+      return [...reordered, ...rest];
+    });
+    setDragItem(null); setDragOverItem(null);
+  };
+
+  return (
+    <div style={{ maxWidth: 560, margin: "0 auto" }}>
+      <div style={{ marginBottom: 8 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: "#1e40af", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>Your Categories</div>
+        <div style={{ fontSize: 12, color: "#64748b", marginBottom: 12 }}>Drag to set priority. Toggle off to hide.</div>
+      </div>
+      {enabled.length === 0 && (
+        <div style={{ padding: 32, textAlign: "center", color: "#94a3b8", border: "2px dashed #e2e8f0", borderRadius: 12, marginBottom: 16 }}>Toggle categories on below to get started</div>
+      )}
+      {enabled.map((cat, idx) => (
+        <div key={cat.id} draggable onDragStart={() => handleDragStart(idx)} onDragOver={(e) => handleDragOver(e, idx)} onDrop={handleDrop} onDragEnd={() => { setDragItem(null); setDragOverItem(null); }}
+          style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", marginBottom: 6, background: dragOverItem === idx ? "#eff6ff" : "#fff", border: dragOverItem === idx ? "2px solid #3b82f6" : "1px solid #e2e8f0", borderRadius: 10, cursor: "grab", transition: "all 0.15s ease", boxShadow: dragItem === idx ? "0 4px 12px rgba(0,0,0,0.12)" : "0 1px 2px rgba(0,0,0,0.04)", opacity: dragItem === idx ? 0.5 : 1 }}>
+          <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#1e40af", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, flexShrink: 0 }}>{idx + 1}</div>
+          <div style={{ color: "#94a3b8", cursor: "grab", flexShrink: 0, fontSize: 16 }}>⠿</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: "#1e293b" }}>{cat.label}</div>
+            <div style={{ fontSize: 12, color: "#64748b", marginTop: 1 }}>{cat.description}</div>
+          </div>
+          <button onClick={() => toggle(cat.id)}
+            style={{ width: 44, height: 24, borderRadius: 12, border: "none", background: "#1e40af", cursor: "pointer", position: "relative", flexShrink: 0, transition: "background 0.2s" }}>
+            <div style={{ width: 18, height: 18, borderRadius: "50%", background: "#fff", position: "absolute", top: 3, left: 23, transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }} />
+          </button>
+        </div>
+      ))}
+      {disabled.length > 0 && (
+        <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "20px 0 16px" }}>
+          <div style={{ flex: 1, height: 1, background: "#e2e8f0" }} />
+          <span style={{ fontSize: 12, color: "#94a3b8", fontWeight: 500 }}>Available</span>
+          <div style={{ flex: 1, height: 1, background: "#e2e8f0" }} />
+        </div>
+      )}
+      {disabled.map((cat) => (
+        <div key={cat.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", marginBottom: 6, background: "#f8fafc", border: "1px solid #f1f5f9", borderRadius: 10, opacity: 0.7, transition: "all 0.15s ease" }}>
+          <div style={{ width: 28, height: 28, flexShrink: 0 }} />
+          <div style={{ width: 16, flexShrink: 0 }} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 14, fontWeight: 500, color: "#64748b" }}>{cat.label}</div>
+            <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 1 }}>{cat.description}</div>
+          </div>
+          <button onClick={() => toggle(cat.id)}
+            style={{ width: 44, height: 24, borderRadius: 12, border: "none", background: "#cbd5e1", cursor: "pointer", position: "relative", flexShrink: 0, transition: "background 0.2s" }}>
+            <div style={{ width: 18, height: 18, borderRadius: "50%", background: "#fff", position: "absolute", top: 3, left: 3, transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }} />
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// OPTION B: Click to Rank
+function OptionB() {
+  const [ranked, setRanked] = useState(() => [...ROLE_PRESELECTED]);
+  const catMap = {}; DEFAULT_CATEGORIES.forEach((c) => (catMap[c.id] = c));
+  const unranked = DEFAULT_CATEGORIES.filter((c) => !ranked.includes(c.id));
+
+  const addToRank = (id) => { if (!ranked.includes(id)) setRanked((prev) => [...prev, id]); };
+  const removeFromRank = (id) => { setRanked((prev) => prev.filter((r) => r !== id)); };
+  const moveUp = (idx) => { if (idx === 0) return; setRanked((prev) => { const n = [...prev]; [n[idx-1], n[idx]] = [n[idx], n[idx-1]]; return n; }); };
+  const moveDown = (idx) => { if (idx === ranked.length - 1) return; setRanked((prev) => { const n = [...prev]; [n[idx], n[idx+1]] = [n[idx+1], n[idx]]; return n; }); };
+
+  return (
+    <div style={{ maxWidth: 560, margin: "0 auto" }}>
+      <div style={{ fontSize: 13, fontWeight: 600, color: "#1e40af", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>Your Priority</div>
+      <div style={{ fontSize: 12, color: "#64748b", marginBottom: 12 }}>Click categories below to add. Reorder with arrows. Hover rank badge to remove.</div>
+      {ranked.length === 0 && (
+        <div style={{ padding: 32, textAlign: "center", color: "#94a3b8", border: "2px dashed #e2e8f0", borderRadius: 12, marginBottom: 16 }}>Click categories below to set your priority</div>
+      )}
+      {ranked.map((id, idx) => {
+        const cat = catMap[id];
+        return (
+          <div key={id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", marginBottom: 4, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 10 }}>
+            <button onClick={() => removeFromRank(id)} title="Remove"
+              style={{ width: 28, height: 28, borderRadius: "50%", background: "#1e40af", color: "#fff", border: "none", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, cursor: "pointer", flexShrink: 0, transition: "background 0.15s" }}
+              onMouseEnter={(e) => { e.target.style.background = "#dc2626"; e.target.textContent = "✕"; }}
+              onMouseLeave={(e) => { e.target.style.background = "#1e40af"; e.target.textContent = idx + 1; }}>
+              {idx + 1}
+            </button>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "#1e293b" }}>{cat.label}</div>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+              <button onClick={() => moveUp(idx)} disabled={idx === 0}
+                style={{ background: "none", border: "none", cursor: idx === 0 ? "default" : "pointer", color: idx === 0 ? "#e2e8f0" : "#64748b", fontSize: 14, padding: "0 4px", lineHeight: 1 }}>▲</button>
+              <button onClick={() => moveDown(idx)} disabled={idx === ranked.length - 1}
+                style={{ background: "none", border: "none", cursor: idx === ranked.length - 1 ? "default" : "pointer", color: idx === ranked.length - 1 ? "#e2e8f0" : "#64748b", fontSize: 14, padding: "0 4px", lineHeight: 1 }}>▼</button>
+            </div>
+          </div>
+        );
+      })}
+      {unranked.length > 0 && (
+        <>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "20px 0 12px" }}>
+            <div style={{ flex: 1, height: 1, background: "#e2e8f0" }} />
+            <span style={{ fontSize: 12, color: "#94a3b8", fontWeight: 500 }}>Click to add</span>
+            <div style={{ flex: 1, height: 1, background: "#e2e8f0" }} />
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {unranked.map((cat) => (
+              <button key={cat.id} onClick={() => addToRank(cat.id)}
+                style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", background: "#f8fafc", border: "1px dashed #cbd5e1", borderRadius: 20, cursor: "pointer", fontSize: 13, color: "#475569", fontWeight: 500, transition: "all 0.15s" }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#3b82f6"; e.currentTarget.style.background = "#eff6ff"; e.currentTarget.style.color = "#1e40af"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#cbd5e1"; e.currentTarget.style.background = "#f8fafc"; e.currentTarget.style.color = "#475569"; }}>
+                <span style={{ fontSize: 14 }}>+</span> {cat.label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// OPTION C: Two Column
+function OptionC() {
+  const [displayed, setDisplayed] = useState(() => [...ROLE_PRESELECTED]);
+  const [dragItem, setDragItem] = useState(null);
+  const [dragOverItem, setDragOverItem] = useState(null);
+  const catMap = {}; DEFAULT_CATEGORIES.forEach((c) => (catMap[c.id] = c));
+  const hidden = DEFAULT_CATEGORIES.filter((c) => !displayed.includes(c.id));
+
+  const moveTo = (id) => {
+    if (displayed.includes(id)) setDisplayed((prev) => prev.filter((d) => d !== id));
+    else setDisplayed((prev) => [...prev, id]);
+  };
+
+  const handleDragStart = (idx) => setDragItem(idx);
+  const handleDragOver = (e, idx) => { e.preventDefault(); setDragOverItem(idx); };
+  const handleDrop = () => {
+    if (dragItem === null || dragOverItem === null || dragItem === dragOverItem) { setDragItem(null); setDragOverItem(null); return; }
+    setDisplayed((prev) => { const n = [...prev]; const [m] = n.splice(dragItem, 1); n.splice(dragOverItem, 0, m); return n; });
+    setDragItem(null); setDragOverItem(null);
+  };
+
+  return (
+    <div style={{ maxWidth: 620, margin: "0 auto" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#cbd5e1", display: "inline-block" }} /> Hidden ({hidden.length})
+          </div>
+          {hidden.length === 0 && (
+            <div style={{ padding: 24, textAlign: "center", color: "#94a3b8", fontSize: 13, border: "1px dashed #e2e8f0", borderRadius: 10 }}>All categories displayed</div>
+          )}
+          {hidden.map((cat) => (
+            <div key={cat.id} onClick={() => moveTo(cat.id)}
+              style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", marginBottom: 6, background: "#f8fafc", border: "1px solid #f1f5f9", borderRadius: 10, cursor: "pointer", transition: "all 0.15s" }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#3b82f6"; e.currentTarget.style.background = "#eff6ff"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#f1f5f9"; e.currentTarget.style.background = "#f8fafc"; }}>
+              <div style={{ flex: 1 }}><div style={{ fontSize: 13, fontWeight: 500, color: "#64748b" }}>{cat.label}</div></div>
+              <span style={{ fontSize: 16, color: "#94a3b8" }}>→</span>
+            </div>
+          ))}
+        </div>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#1e40af", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#1e40af", display: "inline-block" }} /> Displayed ({displayed.length})
+          </div>
+          {displayed.length === 0 && (
+            <div style={{ padding: 24, textAlign: "center", color: "#94a3b8", fontSize: 13, border: "2px dashed #e2e8f0", borderRadius: 10 }}>Click categories to add</div>
+          )}
+          {displayed.map((id, idx) => {
+            const cat = catMap[id];
+            return (
+              <div key={id} draggable onDragStart={() => handleDragStart(idx)} onDragOver={(e) => handleDragOver(e, idx)} onDrop={handleDrop} onDragEnd={() => { setDragItem(null); setDragOverItem(null); }}
+                style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", marginBottom: 6, background: dragOverItem === idx ? "#eff6ff" : "#fff", border: dragOverItem === idx ? "2px solid #3b82f6" : "1px solid #e2e8f0", borderRadius: 10, cursor: "grab", transition: "all 0.15s", opacity: dragItem === idx ? 0.5 : 1 }}>
+                <div style={{ width: 24, height: 24, borderRadius: "50%", background: "#1e40af", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, flexShrink: 0 }}>{idx + 1}</div>
+                <div style={{ color: "#94a3b8", cursor: "grab", flexShrink: 0, fontSize: 14 }}>⠿</div>
+                <div style={{ flex: 1 }}><div style={{ fontSize: 13, fontWeight: 600, color: "#1e293b" }}>{cat.label}</div></div>
+                <button onClick={(e) => { e.stopPropagation(); moveTo(id); }}
+                  style={{ background: "none", border: "none", cursor: "pointer", color: "#94a3b8", fontSize: 16, padding: "0 2px", lineHeight: 1 }}
+                  onMouseEnter={(e) => (e.target.style.color = "#dc2626")} onMouseLeave={(e) => (e.target.style.color = "#94a3b8")}>✕</button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Main App
+function App() {
+  const [activeTab, setActiveTab] = useState("A");
+  const tabs = [
+    { id: "A", label: "Toggle + Drag", desc: "Toggle switches with drag-to-reorder" },
+    { id: "B", label: "Click to Rank", desc: "Click to add, arrows to reorder, hover rank to remove" },
+    { id: "C", label: "Two Column", desc: "Hidden → Displayed columns, drag within right column" },
+  ];
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#f8fafc" }}>
+      <div style={{ background: "#fff", borderBottom: "1px solid #e2e8f0", padding: "16px 32px" }}>
+        <div style={{ maxWidth: 700, margin: "0 auto" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: "#1e40af", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 18, fontWeight: 800 }}>R</div>
+            <div>
+              <span style={{ fontSize: 12, color: "#64748b" }}>Step 5 of 5</span>
+              <h2 style={{ fontSize: 20, fontWeight: 700, color: "#0f172a", margin: 0 }}>Returns Drivers</h2>
+            </div>
+          </div>
+          <p style={{ fontSize: 14, color: "#475569", margin: 0, lineHeight: 1.5 }}>
+            We've pre-selected categories based on your role. Customize which insight categories appear in Returns Drivers and set your priority order.
+          </p>
+        </div>
+      </div>
+
+      <div style={{ maxWidth: 700, margin: "24px auto 0", padding: "0 32px" }}>
+        <div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
+          {tabs.map((tab) => (
+            <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+              style={{ flex: 1, padding: "12px 16px", border: "none", borderRadius: 10, background: activeTab === tab.id ? "#1e40af" : "#fff", color: activeTab === tab.id ? "#fff" : "#475569", cursor: "pointer", transition: "all 0.15s", boxShadow: activeTab === tab.id ? "0 2px 8px rgba(30,64,175,0.3)" : "0 1px 3px rgba(0,0,0,0.08)" }}>
+              <div style={{ fontWeight: 700, fontSize: 14 }}>Option {tab.id}</div>
+              <div style={{ fontSize: 11, marginTop: 2, opacity: 0.8 }}>{tab.label}</div>
+            </button>
+          ))}
+        </div>
+        <div style={{ fontSize: 13, color: "#64748b", marginBottom: 20, textAlign: "center", fontStyle: "italic" }}>
+          {tabs.find((t) => t.id === activeTab)?.desc}
+        </div>
+      </div>
+
+      <div style={{ maxWidth: 700, margin: "0 auto", padding: "0 32px 100px" }}>
+        {activeTab === "A" && <OptionA />}
+        {activeTab === "B" && <OptionB />}
+        {activeTab === "C" && <OptionC />}
+      </div>
+
+      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid #e2e8f0", padding: "16px 32px" }}>
+        <div style={{ maxWidth: 700, margin: "0 auto", display: "flex", justifyContent: "flex-end", gap: 12 }}>
+          <button style={{ padding: "10px 24px", background: "none", border: "none", color: "#3b82f6", cursor: "pointer", fontSize: 14, fontWeight: 600 }}>Back</button>
+          <button style={{ padding: "10px 32px", background: "#1e40af", border: "none", color: "#fff", borderRadius: 8, cursor: "pointer", fontSize: 14, fontWeight: 600, boxShadow: "0 2px 8px rgba(30,64,175,0.3)" }}>Finish</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
