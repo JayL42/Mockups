@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Returns Drivers Tag Configuration — Design Options</title>
+<title>Returns Drivers Tag Preferences — My Account Design Options</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
@@ -245,54 +245,130 @@ function OptionC() {
 // Main App
 function App() {
   const [activeTab, setActiveTab] = useState("A");
+  const [hasChanges, setHasChanges] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [activeNav, setActiveNav] = useState("insights");
+  const [dismissed, setDismissed] = useState(false);
   const tabs = [
     { id: "A", label: "Toggle + Drag", desc: "Toggle switches with drag-to-reorder" },
     { id: "B", label: "Click to Rank", desc: "Click to add, arrows to reorder, hover rank to remove" },
     { id: "C", label: "Two Column", desc: "Hidden → Displayed columns, drag within right column" },
   ];
 
+  const navItems = [
+    { id: "profile", label: "Profile & Role", icon: "👤" },
+    { id: "insights", label: "Insight Preferences", icon: "📊" },
+    { id: "overview", label: "Overview Layout", icon: "📋" },
+    { id: "notifications", label: "Notifications", icon: "🔔" },
+  ];
+
+  const handleSave = () => { setSaved(true); setHasChanges(false); setTimeout(() => setSaved(false), 2000); };
+  const handleReset = () => { setShowResetConfirm(true); };
+  const confirmReset = () => { setShowResetConfirm(false); setHasChanges(false); };
+
   return (
     <div style={{ minHeight: "100vh", background: "#f8fafc" }}>
-      <div style={{ background: "#fff", borderBottom: "1px solid #e2e8f0", padding: "16px 32px" }}>
-        <div style={{ maxWidth: 700, margin: "0 auto" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
-            <div style={{ width: 36, height: 36, borderRadius: 10, background: "#1e40af", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 18, fontWeight: 800 }}>R</div>
-            <div>
-              <span style={{ fontSize: 12, color: "#64748b" }}>Step 5 of 5</span>
-              <h2 style={{ fontSize: 20, fontWeight: 700, color: "#0f172a", margin: 0 }}>Returns Drivers</h2>
-            </div>
-          </div>
-          <p style={{ fontSize: 14, color: "#475569", margin: 0, lineHeight: 1.5 }}>
-            We've pre-selected categories based on your role. Customize which insight categories appear in Returns Drivers and set your priority order.
-          </p>
-        </div>
+      {/* Top App Bar */}
+      <div style={{ background: "#0f172a", padding: "10px 24px", display: "flex", alignItems: "center", gap: 12 }}>
+        <div style={{ width: 32, height: 32, borderRadius: 8, background: "#1e40af", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 16, fontWeight: 800 }}>R</div>
+        <span style={{ color: "#94a3b8", fontSize: 14 }}>Returnalyze</span>
+        <span style={{ color: "#475569", margin: "0 4px" }}>/</span>
+        <span style={{ color: "#e2e8f0", fontSize: 14, fontWeight: 600 }}>My Account</span>
+        <div style={{ flex: 1 }} />
+        <div style={{ width: 32, height: 32, borderRadius: "50%", background: "#334155", display: "flex", alignItems: "center", justifyContent: "center", color: "#e2e8f0", fontSize: 13, fontWeight: 600 }}>JL</div>
       </div>
 
-      <div style={{ maxWidth: 700, margin: "24px auto 0", padding: "0 32px" }}>
-        <div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
-          {tabs.map((tab) => (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-              style={{ flex: 1, padding: "12px 16px", border: "none", borderRadius: 10, background: activeTab === tab.id ? "#1e40af" : "#fff", color: activeTab === tab.id ? "#fff" : "#475569", cursor: "pointer", transition: "all 0.15s", boxShadow: activeTab === tab.id ? "0 2px 8px rgba(30,64,175,0.3)" : "0 1px 3px rgba(0,0,0,0.08)" }}>
-              <div style={{ fontWeight: 700, fontSize: 14 }}>Option {tab.id}</div>
-              <div style={{ fontSize: 11, marginTop: 2, opacity: 0.8 }}>{tab.label}</div>
+      <div style={{ display: "flex", maxWidth: 960, margin: "0 auto", padding: "24px 24px 100px" }}>
+        {/* Left Sidebar Nav */}
+        <div style={{ width: 200, flexShrink: 0, marginRight: 32 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12 }}>Preferences</div>
+          {navItems.map((item) => (
+            <button key={item.id} onClick={() => setActiveNav(item.id)}
+              style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "10px 12px", marginBottom: 4, border: "none", borderRadius: 8, background: activeNav === item.id ? "#eff6ff" : "transparent", color: activeNav === item.id ? "#1e40af" : "#64748b", cursor: "pointer", fontSize: 13, fontWeight: activeNav === item.id ? 600 : 500, textAlign: "left", transition: "all 0.15s" }}>
+              <span style={{ fontSize: 15 }}>{item.icon}</span> {item.label}
             </button>
           ))}
         </div>
-        <div style={{ fontSize: 13, color: "#64748b", marginBottom: 20, textAlign: "center", fontStyle: "italic" }}>
-          {tabs.find((t) => t.id === activeTab)?.desc}
+
+        {/* Main Content */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ marginBottom: 20 }}>
+            <h2 style={{ fontSize: 22, fontWeight: 700, color: "#0f172a", margin: "0 0 6px" }}>Insight Preferences</h2>
+            <p style={{ fontSize: 14, color: "#475569", margin: 0, lineHeight: 1.5 }}>
+              Your Returns Drivers categories were automatically configured based on your role (<strong>Site Merchandising</strong>).
+              Customize which categories appear and adjust your priority order below.
+            </p>
+          </div>
+
+          {/* First-visit awareness banner — addresses discoverability for users onboarded without formal training */}
+          {!dismissed && (
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 20, padding: "14px 16px", background: "#fefce8", border: "1px solid #fde68a", borderRadius: 10 }}>
+              <span style={{ fontSize: 18, flexShrink: 0, marginTop: 1 }}>💡</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#92400e", marginBottom: 2 }}>Did you know?</div>
+                <div style={{ fontSize: 13, color: "#78350f", lineHeight: 1.5 }}>Your dashboard is showing categories most relevant to your role. There are additional categories available — toggle them on below to broaden your view, or add a secondary role you support.</div>
+              </div>
+              <button onClick={() => setDismissed(true)} style={{ background: "none", border: "none", color: "#d97706", cursor: "pointer", fontSize: 16, padding: "0 2px", lineHeight: 1, flexShrink: 0 }}>✕</button>
+            </div>
+          )}
+
+          {/* Role badge + Reset button */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20, padding: "12px 16px", background: "#f0f9ff", border: "1px solid #bae6fd", borderRadius: 10 }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 12, color: "#0369a1", fontWeight: 600 }}>Current Role Mapping</div>
+              <div style={{ fontSize: 14, color: "#0c4a6e", fontWeight: 500, marginTop: 2 }}>Site Merchandising → Assortment, Customer Experience, Operations</div>
+            </div>
+            <button onClick={handleReset}
+              style={{ padding: "8px 16px", background: hasChanges ? "#fff" : "#e0f2fe", border: hasChanges ? "1px solid #0ea5e9" : "1px solid transparent", borderRadius: 8, color: hasChanges ? "#0284c7" : "#7dd3fc", cursor: hasChanges ? "pointer" : "default", fontSize: 13, fontWeight: 600, transition: "all 0.2s", whiteSpace: "nowrap", opacity: hasChanges ? 1 : 0.5 }}>
+              ↻ Reset to Role
+            </button>
+          </div>
+
+          {/* Reset confirmation modal */}
+          {showResetConfirm && (
+            <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }}>
+              <div style={{ background: "#fff", borderRadius: 16, padding: "24px 28px", maxWidth: 400, boxShadow: "0 20px 60px rgba(0,0,0,0.2)" }}>
+                <h3 style={{ margin: "0 0 8px", fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Reset to Role?</h3>
+                <p style={{ margin: "0 0 20px", fontSize: 14, color: "#64748b", lineHeight: 1.5 }}>This will restore the automatically configured insight categories for your <strong>Site Merchandising</strong> role. Your custom adjustments will be removed.</p>
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+                  <button onClick={() => setShowResetConfirm(false)} style={{ padding: "8px 20px", background: "none", border: "1px solid #e2e8f0", borderRadius: 8, color: "#64748b", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>Cancel</button>
+                  <button onClick={confirmReset} style={{ padding: "8px 20px", background: "#1e40af", border: "none", borderRadius: 8, color: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>Reset</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Design option tabs */}
+          <div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
+            {tabs.map((tab) => (
+              <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+                style={{ flex: 1, padding: "12px 16px", border: "none", borderRadius: 10, background: activeTab === tab.id ? "#1e40af" : "#fff", color: activeTab === tab.id ? "#fff" : "#475569", cursor: "pointer", transition: "all 0.15s", boxShadow: activeTab === tab.id ? "0 2px 8px rgba(30,64,175,0.3)" : "0 1px 3px rgba(0,0,0,0.08)" }}>
+                <div style={{ fontWeight: 700, fontSize: 14 }}>Option {tab.id}</div>
+                <div style={{ fontSize: 11, marginTop: 2, opacity: 0.8 }}>{tab.label}</div>
+              </button>
+            ))}
+          </div>
+          <div style={{ fontSize: 13, color: "#64748b", marginBottom: 20, textAlign: "center", fontStyle: "italic" }}>
+            {tabs.find((t) => t.id === activeTab)?.desc}
+          </div>
+
+          <div onClick={() => { if (!hasChanges) setHasChanges(true); }}>
+            {activeTab === "A" && <OptionA />}
+            {activeTab === "B" && <OptionB />}
+            {activeTab === "C" && <OptionC />}
+          </div>
         </div>
       </div>
 
-      <div style={{ maxWidth: 700, margin: "0 auto", padding: "0 32px 100px" }}>
-        {activeTab === "A" && <OptionA />}
-        {activeTab === "B" && <OptionB />}
-        {activeTab === "C" && <OptionC />}
-      </div>
-
-      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid #e2e8f0", padding: "16px 32px" }}>
-        <div style={{ maxWidth: 700, margin: "0 auto", display: "flex", justifyContent: "flex-end", gap: 12 }}>
-          <button style={{ padding: "10px 24px", background: "none", border: "none", color: "#3b82f6", cursor: "pointer", fontSize: 14, fontWeight: 600 }}>Back</button>
-          <button style={{ padding: "10px 32px", background: "#1e40af", border: "none", color: "#fff", borderRadius: 8, cursor: "pointer", fontSize: 14, fontWeight: 600, boxShadow: "0 2px 8px rgba(30,64,175,0.3)" }}>Finish</button>
+      {/* Bottom Action Bar */}
+      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid #e2e8f0", padding: "12px 32px" }}>
+        <div style={{ maxWidth: 960, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 12 }}>
+          {saved && <span style={{ fontSize: 13, color: "#16a34a", fontWeight: 500 }}>✓ Preferences saved</span>}
+          <button onClick={handleSave}
+            style={{ padding: "10px 32px", background: hasChanges ? "#1e40af" : "#94a3b8", border: "none", color: "#fff", borderRadius: 8, cursor: hasChanges ? "pointer" : "default", fontSize: 14, fontWeight: 600, boxShadow: hasChanges ? "0 2px 8px rgba(30,64,175,0.3)" : "none", transition: "all 0.2s" }}>
+            Save Preferences
+          </button>
         </div>
       </div>
     </div>

@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Conversational Analytics Placement — Design Options</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f0f2f5; overflow: hidden; height: 100vh; }
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useRef, useEffect } = React;
+
+// ============================================================
+// Shared: Simulated platform shell + fake data
+// ============================================================
+
+const CURRENT_PAGE = "Overview";
+
+const SUGGESTED_QUESTIONS = {
+  Overview: [
+    "What are my top 5 returns drivers?",
+    "Why did return rate increase 432% YoY?",
+    "Compare return rates across all regions",
+  ],
+  "Returns Drivers": [
+    "What's driving the Size & Fit spike?",
+    "Show me customer experience insights for dresses",
+    "Which department has the highest return rate?",
+  ],
+};
+
+const SAMPLE_CONVERSATION = [
+  { role: "user", text: "What were my 5 worst performers in Women's Dresses?" },
+  {
+    role: "assistant",
+    text: "Based on the last 3 months, your worst performers in Women's Dresses:",
+    items: [
+      { name: "Floral Midi Dress", stats: "38.2% return rate | $420K lost rev" },
+      { name: "Wrap Maxi Dress", stats: "34.7% return rate | $385K lost rev" },
+      { name: "Bodycon Mini Dress", stats: "31.1% return rate | $298K lost rev" },
+      { name: "A-Line Cocktail Dress", stats: "29.8% return rate | $275K lost rev" },
+      { name: "Off-Shoulder Dress", stats: "27.4% return rate | $241K lost rev" },
+    ],
+    link: "View in Returns Drivers →",
+  },
+];
+
+const RD_CATEGORIES = [
+  { name: "Customer Experience", count: 571, value: "$37.6M" },
+  { name: "Operations", count: 306, value: "$29.7M" },
+  { name: "Assortment", count: 532, value: "$15.5M" },
+  { name: "Size & Fit", count: 440, value: "$12.0M" },
+  { name: "Best Performers", count: 327, value: "$10.5M" },
+  { name: "Product Design", count: 214, value: "$8.4M" },
+  { name: "Product Quality", count: 73, value: "$4.8M" },
+];
+
+const KPI_TILES = [
+  { label: "Items Sold", value: "86.1M", change: "-8%", direction: "down" },
+  { label: "Items Returned", value: "10.7M", change: "+85%", direction: "up" },
+  { label: "Return Rate (V)", value: "12.4%", change: "+101%", direction: "up" },
+  { label: "Return Rate ($)", value: "28.5%", change: "+432%", direction: "up" },
+  { label: "Total Revenue", value: "$7.7B", change: "+3%", direction: "up" },
+  { label: "Lost Revenue", value: "$2.2B", change: "+450%", direction: "up" },
+];
+
+// Chat message component
+function ChatMessage({ msg, idx }) {
+  if (msg.role === "user") {
+    return (
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+        <div style={{ background: "#1e40af", color: "#fff", padding: "10px 14px", borderRadius: "16px 16px 4px 16px", maxWidth: "85%", fontSize: 13 }}>
+          {msg.text}
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div style={{ display: "flex", justifyContent: "flex-start", marginBottom: 12 }}>
+      <div style={{ maxWidth: "90%" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+          <div style={{ width: 22, height: 22, borderRadius: "50%", background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "#475569" }}>C</div>
+        </div>
+        <div style={{ fontSize: 13, color: "#334155", marginBottom: 8, lineHeight: 1.5 }}>{msg.text}</div>
+        {msg.items && (
+          <div style={{ marginBottom: 8 }}>
+            {msg.items.map((item, i) => (
+              <div key={i} style={{ padding: "6px 0", borderBottom: i < msg.items.length - 1 ? "1px solid #f1f5f9" : "none" }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#1e293b" }}>{i + 1}. {item.name}</div>
+                <div style={{ fontSize: 11, color: "#64748b" }}>{item.stats}</div>
+              </div>
+            ))}
+          </div>
+        )}
+        {msg.link && (
+          <a href="#" onClick={(e) => e.preventDefault()} style={{ fontSize: 12, color: "#1e40af", textDecoration: "none", fontWeight: 500 }}>{msg.link}</a>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Chat input bar
+function ChatInput({ placeholder, onSend, compact }) {
+  const [value, setValue] = useState("");
+  return (
+    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+      <input
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={(e) => { if (e.key === "Enter" && value.trim()) { onSend(value); setValue(""); } }}
+        placeholder={placeholder || "Ask Clarity anything..."}
+        style={{
+          flex: 1, padding: compact ? "8px 12px" : "10px 14px", border: "1px solid #e2e8f0", borderRadius: 20,
+          fontSize: 13, outline: "none", background: "#fff",
+        }}
+      />
+      <button
+        onClick={() => { if (value.trim()) { onSend(value); setValue(""); } }}
+        style={{
+          width: compact ? 32 : 36, height: compact ? 32 : 36, borderRadius: "50%", border: "none",
+          background: "#1e40af", color: "#fff", cursor: "pointer", display: "flex",
+          alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0,
+        }}
+      >→</button>
+    </div>
+  );
+}
+
+// Left navigation
+function LeftNav({ activePage, onPageChange, minimized, onToggle, showClarityNav, onClarityToggle }) {
+  const pages = ["Overview", "Returns Drivers", "My Workspace", "Products", "Data Explorer", "Reports"];
+  return (
+    <div style={{
+      width: minimized ? 56 : 200, background: "#fff", borderRight: "1px solid #e2e8f0",
+      display: "flex", flexDirection: "column", height: "100%", transition: "width 0.2s", flexShrink: 0,
+    }}>
+      <div style={{ padding: minimized ? "16px 10px" : "16px 20px", borderBottom: "1px solid #f1f5f9" }}>
+        <div style={{ width: 32, height: 32, borderRadius: 8, background: "#1e40af", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 16, fontWeight: 800 }}>R</div>
+      </div>
+      <div style={{ flex: 1, padding: "8px 0", overflow: "auto" }}>
+        {pages.map((page) => (
+          <button key={page} onClick={() => onPageChange(page)}
+            style={{
+              display: "flex", alignItems: "center", gap: 8, width: "100%",
+              padding: minimized ? "10px" : "10px 20px", border: "none", cursor: "pointer",
+              background: activePage === page ? "#eff6ff" : "transparent",
+              color: activePage === page ? "#1e40af" : "#475569",
+              fontSize: 13, fontWeight: activePage === page ? 600 : 400,
+              textAlign: "left", transition: "all 0.15s",
+              justifyContent: minimized ? "center" : "flex-start",
+            }}>
+            <span style={{ fontSize: 14 }}>
+              {page === "Overview" ? "📊" : page === "Returns Drivers" ? "🔍" : page === "My Workspace" ? "📋" : page === "Products" ? "📦" : page === "Data Explorer" ? "📈" : "📄"}
+            </span>
+            {!minimized && page}
+          </button>
+        ))}
+      </div>
+      <div style={{ borderTop: "1px solid #f1f5f9", padding: "8px 0" }}>
+        {showClarityNav !== undefined && (
+          <button onClick={onClarityToggle}
+            style={{
+              display: "flex", alignItems: "center", gap: 8, width: "100%",
+              padding: minimized ? "10px" : "10px 20px", border: "none", cursor: "pointer",
+              background: showClarityNav ? "#eff6ff" : "transparent",
+              color: showClarityNav ? "#1e40af" : "#475569",
+              fontSize: 13, fontWeight: showClarityNav ? 600 : 400,
+              textAlign: "left", justifyContent: minimized ? "center" : "flex-start",
+            }}>
+            <span style={{ fontSize: 14 }}>✨</span>
+            {!minimized && "Clarity"}
+          </button>
+        )}
+        <button onClick={onToggle}
+          style={{
+            display: "flex", alignItems: "center", gap: 8, width: "100%",
+            padding: minimized ? "10px" : "10px 20px", border: "none", cursor: "pointer",
+            background: "transparent", color: "#94a3b8", fontSize: 12,
+            textAlign: "left", justifyContent: minimized ? "center" : "flex-start",
+          }}>
+          <span>{minimized ? "→" : "←"}</span>
+          {!minimized && "Minimize"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Dashboard content (shared across all options)
+function DashboardContent({ showTopBar }) {
+  return (
+    <div style={{ padding: 24, overflow: "auto", flex: 1 }}>
+      {/* Filter bar */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap", alignItems: "center" }}>
+        {["All Brands", "All Regions", "All Channels", "All Departments", "Rolling 3 Months"].map((f) => (
+          <select key={f} style={{ padding: "6px 12px", border: "1px solid #e2e8f0", borderRadius: 6, fontSize: 12, color: "#475569", background: "#fff", cursor: "pointer" }}>
+            <option>{f}</option>
+          </select>
+        ))}
+        <button style={{ padding: "6px 16px", background: "#1e40af", color: "#fff", border: "none", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Apply Filters</button>
+        <button style={{ padding: "6px 16px", background: "#fff", color: "#475569", border: "1px solid #e2e8f0", borderRadius: 6, fontSize: 12, cursor: "pointer" }}>Reset</button>
+      </div>
+
+      {/* RD Categories */}
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 12 }}>
+          <span style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>Returns Drivers</span>
+          <span style={{ fontSize: 12, color: "#64748b" }}>Total Revenue Opportunity: <strong style={{ color: "#0f172a" }}>$55.8M</strong></span>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8, marginBottom: 8 }}>
+          {RD_CATEGORIES.slice(0, 5).map((cat) => (
+            <div key={cat.name} style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, padding: "12px 14px", cursor: "pointer", transition: "border-color 0.15s" }}
+              onMouseEnter={(e) => e.currentTarget.style.borderColor = "#3b82f6"}
+              onMouseLeave={(e) => e.currentTarget.style.borderColor = "#e2e8f0"}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: 4 }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: "#334155" }}>{cat.name}</span>
+                <span style={{ fontSize: 10, background: "#e2e8f0", color: "#475569", padding: "1px 6px", borderRadius: 4, fontWeight: 600 }}>{cat.count}</span>
+              </div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#1e40af" }}>{cat.value}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+          {RD_CATEGORIES.slice(5).map((cat) => (
+            <div key={cat.name} style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, padding: "12px 14px", cursor: "pointer" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: 4 }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: "#334155" }}>{cat.name}</span>
+                <span style={{ fontSize: 10, background: "#e2e8f0", color: "#475569", padding: "1px 6px", borderRadius: 4, fontWeight: 600 }}>{cat.count}</span>
+              </div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#1e40af" }}>{cat.value}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* KPI tiles */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 8, marginBottom: 20 }}>
+        {KPI_TILES.map((kpi) => (
+          <div key={kpi.label} style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, padding: "14px" }}>
+            <div style={{ fontSize: 11, color: "#64748b", marginBottom: 4 }}>{kpi.label}</div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: "#0f172a" }}>{kpi.value}</div>
+            <div style={{ fontSize: 11, color: kpi.direction === "down" ? "#16a34a" : "#dc2626", marginTop: 2 }}>
+              {kpi.change} from last year
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* AI Summary */}
+      <div style={{ background: "#f5f3ff", border: "1px solid #e9e5ff", borderRadius: 8, padding: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+          <span style={{ fontSize: 14 }}>✨</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: "#5b21b6" }}>AI Returns Summary</span>
+        </div>
+        <div style={{ fontSize: 12, color: "#475569", lineHeight: 1.6 }}>
+          The return rate increased 432% year-over-year, reaching 28.5% and contributing to a 450% increase in lost revenue to $2.2 billion, despite a 3% rise in total revenue. This significant increase was primarily driven by a rise in the US region, from 4.9% to 29.2%. The most frequent return reasons were fit issues and product quality concerns...
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// OPTION A: Michael's Top Bar — Embedded collapsible panel
+// ============================================================
+function OptionA() {
+  const [expanded, setExpanded] = useState(true);
+  const [navMin, setNavMin] = useState(false);
+  const [messages, setMessages] = useState([]);
+  const [page, setPage] = useState("Overview");
+
+  const sendMessage = (text) => {
+    setMessages([...messages, { role: "user", text }, ...SAMPLE_CONVERSATION.filter(m => m.role === "assistant")]);
+  };
+
+  return (
+    <div style={{ display: "flex", height: "100%", overflow: "hidden" }}>
+      <LeftNav activePage={page} onPageChange={setPage} minimized={navMin} onToggle={() => setNavMin(!navMin)} />
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        {/* Welcome header */}
+        <div style={{ padding: "16px 24px 0", background: "#f8fafc" }}>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: "#0f172a" }}>Welcome, Michael 👋</h1>
+        </div>
+
+        {/* Clarity top bar */}
+        <div style={{ margin: "12px 24px 0", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 10, overflow: "hidden" }}>
+          <button onClick={() => setExpanded(!expanded)}
+            style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", padding: "12px 16px", background: "#fff", border: "none", cursor: "pointer" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ width: 24, height: 24, borderRadius: 6, background: "#1e40af", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 12, fontWeight: 800 }}>R</div>
+              <span style={{ fontSize: 14, fontWeight: 600, color: "#0f172a" }}>Ask Returnalyze Clarity</span>
+            </div>
+            <span style={{ color: "#94a3b8", fontSize: 18, transform: expanded ? "rotate(180deg)" : "rotate(0)", transition: "transform 0.2s" }}>⌄</span>
+          </button>
+          {expanded && (
+            <div style={{ padding: "0 16px 14px" }}>
+              <ChatInput placeholder="Ask something like: what were my 5 worst performers in Women's Dresses?" onSend={sendMessage} />
+              <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                {(SUGGESTED_QUESTIONS[page] || SUGGESTED_QUESTIONS.Overview).map((q, i) => (
+                  <button key={i} onClick={() => sendMessage(q)}
+                    style={{ padding: "8px 14px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 12, color: "#475569", cursor: "pointer", transition: "all 0.15s", textAlign: "left", flex: 1 }}
+                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#3b82f6"; e.currentTarget.style.color = "#1e40af"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#e2e8f0"; e.currentTarget.style.color = "#475569"; }}>
+                    {q}
+                  </button>
+                ))}
+              </div>
+              {messages.length > 0 && (
+                <div style={{ marginTop: 12, maxHeight: 240, overflow: "auto", padding: "8px 0", borderTop: "1px solid #f1f5f9" }}>
+                  {messages.map((msg, i) => <ChatMessage key={i} msg={msg} idx={i} />)}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <DashboardContent />
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// OPTION B: Jay's Side Drawer — Overlay on left nav
+// ============================================================
+function OptionB() {
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [contextEnabled, setContextEnabled] = useState(true);
+  const [navMin, setNavMin] = useState(false);
+  const [messages, setMessages] = useState([...SAMPLE_CONVERSATION]);
+  const [page, setPage] = useState("Overview");
+  const chatEndRef = useRef(null);
+
+  const sendMessage = (text) => {
+    setMessages((prev) => [...prev, { role: "user", text }, ...SAMPLE_CONVERSATION.filter(m => m.role === "assistant")]);
+  };
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  return (
+    <div style={{ display: "flex", height: "100%", overflow: "hidden", position: "relative" }}>
+      {/* Left nav — visible when drawer closed */}
+      {!drawerOpen && (
+        <LeftNav activePage={page} onPageChange={setPage} minimized={navMin} onToggle={() => setNavMin(!navMin)}
+          showClarityNav={drawerOpen} onClarityToggle={() => setDrawerOpen(true)} />
+      )}
+
+      {/* Clarity drawer — replaces left nav */}
+      {drawerOpen && (
+        <div style={{
+          width: 340, background: "#fff", borderRight: "1px solid #e2e8f0",
+          display: "flex", flexDirection: "column", height: "100%", flexShrink: 0,
+          boxShadow: "4px 0 16px rgba(0,0,0,0.06)", zIndex: 10,
+        }}>
+          {/* Drawer header */}
+          <div style={{ padding: "14px 16px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: 10 }}>
+            <button onClick={() => setDrawerOpen(false)}
+              style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "#64748b", padding: 0 }}>←</button>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ width: 28, height: 28, borderRadius: 8, background: "#1e40af", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 13, fontWeight: 800 }}>R</div>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a" }}>Returnalyze Clarity</div>
+                <div style={{ fontSize: 10, color: "#64748b" }}>Conversational Analytics</div>
+              </div>
+            </div>
+            <button onClick={() => setDrawerOpen(false)}
+              style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "#94a3b8", padding: "4px" }}>+</button>
+          </div>
+
+          {/* Context bar */}
+          <div style={{ padding: "10px 16px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 11, color: "#64748b" }}>Context:</span>
+            <span style={{
+              display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 10px",
+              background: contextEnabled ? "#eff6ff" : "#f1f5f9",
+              border: `1px solid ${contextEnabled ? "#bfdbfe" : "#e2e8f0"}`,
+              borderRadius: 12, fontSize: 11, color: contextEnabled ? "#1e40af" : "#64748b",
+            }}>
+              📄 {page}
+              <button onClick={() => setContextEnabled(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "#94a3b8", fontSize: 10, padding: 0, marginLeft: 2 }}>✕</button>
+            </span>
+            <button onClick={() => setContextEnabled(!contextEnabled)}
+              style={{
+                width: 36, height: 18, borderRadius: 9, border: "none",
+                background: contextEnabled ? "#1e40af" : "#cbd5e1", cursor: "pointer",
+                position: "relative", marginLeft: "auto", flexShrink: 0,
+              }}>
+              <div style={{
+                width: 14, height: 14, borderRadius: "50%", background: "#fff",
+                position: "absolute", top: 2, left: contextEnabled ? 20 : 2,
+                transition: "left 0.2s", boxShadow: "0 1px 2px rgba(0,0,0,0.2)",
+              }} />
+            </button>
+          </div>
+
+          {/* Suggested questions */}
+          <div style={{ padding: "12px 16px", borderBottom: "1px solid #f1f5f9" }}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>
+              Suggested for {page}
+            </div>
+            {(SUGGESTED_QUESTIONS[page] || SUGGESTED_QUESTIONS.Overview).map((q, i) => (
+              <button key={i} onClick={() => sendMessage(q)}
+                style={{
+                  display: "block", width: "100%", textAlign: "left", padding: "8px 10px",
+                  background: "#f8fafc", border: "1px solid #f1f5f9", borderRadius: 8,
+                  fontSize: 12, color: "#475569", cursor: "pointer", marginBottom: 4,
+                  transition: "all 0.15s",
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#3b82f6"; e.currentTarget.style.color = "#1e40af"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#f1f5f9"; e.currentTarget.style.color = "#475569"; }}>
+                {q}
+              </button>
+            ))}
+          </div>
+
+          {/* Chat messages */}
+          <div style={{ flex: 1, overflow: "auto", padding: "12px 16px" }}>
+            {messages.map((msg, i) => <ChatMessage key={i} msg={msg} idx={i} />)}
+            <div ref={chatEndRef} />
+          </div>
+
+          {/* Input */}
+          <div style={{ padding: "12px 16px", borderTop: "1px solid #f1f5f9" }}>
+            <ChatInput placeholder="Ask Clarity anything..." onSend={sendMessage} compact />
+          </div>
+        </div>
+      )}
+
+      {/* Main content */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        <div style={{ padding: "16px 24px 0", background: "#f8fafc", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: "#0f172a" }}>Welcome, Michael 👋</h1>
+          {!drawerOpen && (
+            <button onClick={() => setDrawerOpen(true)}
+              style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", background: "#1e40af", color: "#fff", border: "none", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer", boxShadow: "0 2px 8px rgba(30,64,175,0.2)" }}>
+              ✨ Ask Clarity
+            </button>
+          )}
+        </div>
+        <DashboardContent />
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// OPTION C: Floating Bubble — Bottom-right chat popup
+// ============================================================
+function OptionC() {
+  const [open, setOpen] = useState(false);
+  const [navMin, setNavMin] = useState(false);
+  const [messages, setMessages] = useState([]);
+  const [page, setPage] = useState("Overview");
+  const [contextEnabled, setContextEnabled] = useState(true);
+  const chatEndRef = useRef(null);
+
+  const sendMessage = (text) => {
+    setMessages((prev) => [...prev, { role: "user", text }, ...SAMPLE_CONVERSATION.filter(m => m.role === "assistant")]);
+  };
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  return (
+    <div style={{ display: "flex", height: "100%", overflow: "hidden", position: "relative" }}>
+      <LeftNav activePage={page} onPageChange={setPage} minimized={navMin} onToggle={() => setNavMin(!navMin)}
+        showClarityNav={open} onClarityToggle={() => setOpen(!open)} />
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        <div style={{ padding: "16px 24px 0", background: "#f8fafc" }}>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: "#0f172a" }}>Welcome, Michael 👋</h1>
+        </div>
+        <DashboardContent />
+      </div>
+
+      {/* Floating bubble */}
+      {!open && (
+        <button onClick={() => setOpen(true)}
+          style={{
+            position: "absolute", bottom: 24, right: 24, width: 52, height: 52,
+            borderRadius: "50%", background: "#1e40af", color: "#fff", border: "none",
+            cursor: "pointer", boxShadow: "0 4px 16px rgba(30,64,175,0.35)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 22, transition: "transform 0.15s", zIndex: 20,
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.1)"}
+          onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}>
+          ✨
+        </button>
+      )}
+
+      {/* Chat popup */}
+      {open && (
+        <div style={{
+          position: "absolute", bottom: 24, right: 24, width: 380, height: 520,
+          background: "#fff", borderRadius: 16, boxShadow: "0 8px 32px rgba(0,0,0,0.15)",
+          display: "flex", flexDirection: "column", overflow: "hidden", zIndex: 20,
+          border: "1px solid #e2e8f0",
+        }}>
+          {/* Header */}
+          <div style={{ padding: "14px 16px", background: "#1e40af", color: "#fff", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ width: 28, height: 28, borderRadius: 8, background: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 800 }}>R</div>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 700 }}>Returnalyze Clarity</div>
+                <div style={{ fontSize: 10, opacity: 0.8 }}>Conversational Analytics</div>
+              </div>
+            </div>
+            <button onClick={() => setOpen(false)}
+              style={{ background: "none", border: "none", color: "#fff", cursor: "pointer", fontSize: 18, opacity: 0.8 }}>✕</button>
+          </div>
+
+          {/* Context bar */}
+          <div style={{ padding: "8px 16px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 11, color: "#64748b" }}>Context:</span>
+            <span style={{
+              display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px",
+              background: contextEnabled ? "#eff6ff" : "#f1f5f9",
+              border: `1px solid ${contextEnabled ? "#bfdbfe" : "#e2e8f0"}`,
+              borderRadius: 10, fontSize: 10, color: contextEnabled ? "#1e40af" : "#64748b",
+            }}>
+              📄 {page}
+            </span>
+            <button onClick={() => setContextEnabled(!contextEnabled)}
+              style={{
+                width: 32, height: 16, borderRadius: 8, border: "none",
+                background: contextEnabled ? "#1e40af" : "#cbd5e1", cursor: "pointer",
+                position: "relative", marginLeft: "auto", flexShrink: 0,
+              }}>
+              <div style={{
+                width: 12, height: 12, borderRadius: "50%", background: "#fff",
+                position: "absolute", top: 2, left: contextEnabled ? 18 : 2,
+                transition: "left 0.2s", boxShadow: "0 1px 2px rgba(0,0,0,0.2)",
+              }} />
+            </button>
+          </div>
+
+          {/* Suggested or messages */}
+          <div style={{ flex: 1, overflow: "auto", padding: "12px 16px" }}>
+            {messages.length === 0 && (
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 600, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>
+                  Suggested for {page}
+                </div>
+                {(SUGGESTED_QUESTIONS[page] || SUGGESTED_QUESTIONS.Overview).map((q, i) => (
+                  <button key={i} onClick={() => sendMessage(q)}
+                    style={{
+                      display: "block", width: "100%", textAlign: "left", padding: "8px 10px",
+                      background: "#f8fafc", border: "1px solid #f1f5f9", borderRadius: 8,
+                      fontSize: 12, color: "#475569", cursor: "pointer", marginBottom: 4,
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#3b82f6"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#f1f5f9"; }}>
+                    {q}
+                  </button>
+                ))}
+              </div>
+            )}
+            {messages.map((msg, i) => <ChatMessage key={i} msg={msg} idx={i} />)}
+            <div ref={chatEndRef} />
+          </div>
+
+          {/* Input */}
+          <div style={{ padding: "12px 16px", borderTop: "1px solid #f1f5f9" }}>
+            <ChatInput placeholder="Ask Clarity anything..." onSend={sendMessage} compact />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// Main App
+// ============================================================
+function App() {
+  const [activeTab, setActiveTab] = useState("B");
+
+  const tabs = [
+    { id: "A", label: "Top Bar Panel", author: "Michael", desc: "Collapsible Clarity bar embedded at top of content area" },
+    { id: "B", label: "Side Drawer", author: "Jay", desc: "Overlay drawer replaces left nav. Persists across pages." },
+    { id: "C", label: "Floating Bubble", author: "Mike", desc: "Bottom-right chat popup. Toggle from left nav or bubble." },
+  ];
+
+  return (
+    <div style={{ height: "100vh", display: "flex", flexDirection: "column" }}>
+      {/* Option selector */}
+      <div style={{ background: "#fff", borderBottom: "1px solid #e2e8f0", padding: "10px 24px", display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
+        <span style={{ fontSize: 13, fontWeight: 700, color: "#0f172a", marginRight: 8 }}>CA Placement:</span>
+        {tabs.map((tab) => (
+          <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+            style={{
+              padding: "6px 14px", border: "none", borderRadius: 6,
+              background: activeTab === tab.id ? "#1e40af" : "#f1f5f9",
+              color: activeTab === tab.id ? "#fff" : "#475569",
+              cursor: "pointer", fontSize: 12, fontWeight: 600,
+              transition: "all 0.15s",
+            }}>
+            {tab.label} <span style={{ opacity: 0.7, fontWeight: 400 }}>({tab.author})</span>
+          </button>
+        ))}
+        <span style={{ marginLeft: 12, fontSize: 11, color: "#94a3b8", fontStyle: "italic" }}>
+          {tabs.find((t) => t.id === activeTab)?.desc}
+        </span>
+      </div>
+
+      {/* Prototype */}
+      <div style={{ flex: 1, overflow: "hidden" }}>
+        {activeTab === "A" && <OptionA />}
+        {activeTab === "B" && <OptionB />}
+        {activeTab === "C" && <OptionC />}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
