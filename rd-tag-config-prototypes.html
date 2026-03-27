@@ -230,7 +230,7 @@ function OptionC() {
                 <div style={{ width: 24, height: 24, borderRadius: "50%", background: "#1e40af", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, flexShrink: 0 }}>{idx + 1}</div>
                 <div style={{ color: "#94a3b8", cursor: "grab", flexShrink: 0, fontSize: 14 }}>⠿</div>
                 <div style={{ flex: 1 }}><div style={{ fontSize: 13, fontWeight: 600, color: "#1e293b" }}>{cat.label}</div></div>
-                <button onClick={(e) => { e.stopPropagation(); moveTo(id); }}
+                <button onClick={() => moveTo(id)}
                   style={{ background: "none", border: "none", cursor: "pointer", color: "#94a3b8", fontSize: 16, padding: "0 2px", lineHeight: 1 }}
                   onMouseEnter={(e) => (e.target.style.color = "#dc2626")} onMouseLeave={(e) => (e.target.style.color = "#94a3b8")}>✕</button>
               </div>
