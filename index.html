@@ -25,25 +25,26 @@
   <!-- Prototype Cards -->
   <div style="display: grid; gap: 16px;">
 
-    <!-- CA Placement -->
-    <a href="ca-placement-prototypes.html" style="display: block; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px 24px; transition: all 0.15s; cursor: pointer;"
+    <!-- CA Bubble + Pop-Out -->
+    <a href="ca-bubble-popout.html" style="display: block; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px 24px; transition: all 0.15s; cursor: pointer;"
        onmouseover="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 4px 12px rgba(59,130,246,0.1)';"
        onmouseout="this.style.borderColor='#e2e8f0'; this.style.boxShadow='none';">
       <div style="display: flex; justify-content: space-between; align-items: start;">
         <div>
           <div style="display: flex; align-items: center; gap: 8; margin-bottom: 6px;">
-            <span style="font-size: 14px;">💬</span>
-            <span style="font-size: 16px; font-weight: 700; color: #0f172a;">Conversational Analytics Placement</span>
+            <span style="font-size: 14px;">&#10024;</span>
+            <span style="font-size: 16px; font-weight: 700; color: #0f172a;">Conversational Analytics — Bubble + Pop-Out</span>
             <span style="font-size: 10px; background: #dcfce7; color: #16a34a; padding: 2px 8px; border-radius: 10px; font-weight: 600;">NEW</span>
           </div>
-          <p style="font-size: 13px; color: #64748b; line-height: 1.5;">Three placement options for the Clarity chat interface — Top Bar (Michael), Side Drawer (Jay), Floating Bubble (Mike). Full platform shell with interactive chat.</p>
+          <p style="font-size: 13px; color: #64748b; line-height: 1.5;">Floating bubble chat with pop-out to a separate Chrome window (no URL bar). Context-aware — live syncs with page navigation. Conversation state preserved across inline/pop-out modes.</p>
         </div>
-        <span style="color: #94a3b8; font-size: 20px; flex-shrink: 0; margin-left: 16px;">→</span>
+        <span style="color: #94a3b8; font-size: 20px; flex-shrink: 0; margin-left: 16px;">&rarr;</span>
       </div>
       <div style="display: flex; gap: 6px; margin-top: 10px;">
-        <span style="font-size: 10px; background: #f1f5f9; color: #475569; padding: 2px 8px; border-radius: 4px;">3 options</span>
+        <span style="font-size: 10px; background: #f1f5f9; color: #475569; padding: 2px 8px; border-radius: 4px;">Bubble + Pop-Out</span>
         <span style="font-size: 10px; background: #f1f5f9; color: #475569; padding: 2px 8px; border-radius: 4px;">P2 — Conversational Analytics</span>
         <span style="font-size: 10px; background: #f1f5f9; color: #475569; padding: 2px 8px; border-radius: 4px;">ER-176</span>
+        <span style="font-size: 10px; background: #dbeafe; color: #1e40af; padding: 2px 8px; border-radius: 4px;">Apr 1 decision</span>
       </div>
     </a>
 
@@ -92,12 +93,43 @@
       </div>
     </a>
 
+    <!-- Archived Section -->
+    <div style="margin-top: 12px;">
+      <div style="display: flex; align-items: center; gap: 8; margin-bottom: 12px;">
+        <div style="height: 1px; background: #e2e8f0; flex: 1;"></div>
+        <span style="font-size: 11px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em;">Archived</span>
+        <div style="height: 1px; background: #e2e8f0; flex: 1;"></div>
+      </div>
+
+      <!-- CA Placement (Archived) -->
+      <a href="ca-placement-prototypes.html" style="display: block; background: #fafbfc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px 24px; transition: all 0.15s; cursor: pointer; opacity: 0.7;"
+         onmouseover="this.style.opacity='0.9'; this.style.borderColor='#94a3b8';"
+         onmouseout="this.style.opacity='0.7'; this.style.borderColor='#e2e8f0';">
+        <div style="display: flex; justify-content: space-between; align-items: start;">
+          <div>
+            <div style="display: flex; align-items: center; gap: 8; margin-bottom: 6px;">
+              <span style="font-size: 14px;">&#128172;</span>
+              <span style="font-size: 16px; font-weight: 700; color: #64748b;">Conversational Analytics Placement</span>
+              <span style="font-size: 10px; background: #f1f5f9; color: #94a3b8; padding: 2px 8px; border-radius: 10px; font-weight: 600;">ARCHIVED</span>
+            </div>
+            <p style="font-size: 13px; color: #94a3b8; line-height: 1.5;">Three placement options for the Clarity chat interface — Top Bar (Michael), Side Drawer (Jay), Floating Bubble (Mike). Superseded by Bubble + Pop-Out decision (Apr 1).</p>
+          </div>
+          <span style="color: #cbd5e1; font-size: 20px; flex-shrink: 0; margin-left: 16px;">&rarr;</span>
+        </div>
+        <div style="display: flex; gap: 6px; margin-top: 10px;">
+          <span style="font-size: 10px; background: #f1f5f9; color: #94a3b8; padding: 2px 8px; border-radius: 4px;">3 options</span>
+          <span style="font-size: 10px; background: #f1f5f9; color: #94a3b8; padding: 2px 8px; border-radius: 4px;">P2 — Conversational Analytics</span>
+          <span style="font-size: 10px; background: #f1f5f9; color: #94a3b8; padding: 2px 8px; border-radius: 4px;">ER-176</span>
+        </div>
+      </a>
+    </div>
+
   </div>
 
   <!-- Footer -->
   <div style="margin-top: 32px; padding-top: 16px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
     <span style="font-size: 11px; color: #94a3b8;">Returnalyze Product · Phase 2: Intelligent Action</span>
-    <span style="font-size: 11px; color: #94a3b8;">Updated Mar 2026</span>
+    <span style="font-size: 11px; color: #94a3b8;">Updated Apr 1, 2026</span>
   </div>
 </div>
 </body>

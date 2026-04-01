@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Conversational Analytics — Bubble + Pop-Out Window</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f0f2f5; overflow: hidden; height: 100vh; }
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+  @keyframes pulseGlow { 0%, 100% { box-shadow: 0 0 0 0 rgba(29,153,255,0.3); } 50% { box-shadow: 0 0 0 6px rgba(29,153,255,0); } }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useRef, useEffect, useCallback } = React;
+
+// ============================================================
+// Data
+// ============================================================
+
+const SUGGESTED_QUESTIONS = {
+  Overview: [
+    "What are my top 5 returns drivers?",
+    "Why did return rate increase 432% YoY?",
+    "Compare return rates across all regions",
+  ],
+  "Returns Drivers": [
+    "What's driving the Size & Fit spike?",
+    "Show me customer experience insights for dresses",
+    "Which department has the highest return rate?",
+  ],
+  Actions: [
+    "How many open actions do I have?",
+    "What's the ROI on completed actions this quarter?",
+    "Show actions expiring this week",
+  ],
+};
+
+const SAMPLE_RESPONSES = [
+  {
+    role: "assistant",
+    text: "Based on the last 3 months, your worst performers in Women's Dresses:",
+    items: [
+      { name: "Floral Midi Dress", stats: "38.2% return rate | $420K lost rev" },
+      { name: "Wrap Maxi Dress", stats: "34.7% return rate | $385K lost rev" },
+      { name: "Bodycon Mini Dress", stats: "31.1% return rate | $298K lost rev" },
+      { name: "A-Line Cocktail Dress", stats: "29.8% return rate | $275K lost rev" },
+      { name: "Off-Shoulder Dress", stats: "27.4% return rate | $241K lost rev" },
+    ],
+    link: "View in Returns Drivers →",
+  },
+  {
+    role: "assistant",
+    text: "The Floral Midi Dress (Style #FMD-2847) has a 38.2% return rate over the last 90 days:",
+    details: [
+      { label: "Top Return Reason", value: "Size & Fit (62%)" },
+      { label: "Second Reason", value: "Not as Expected (24%)" },
+      { label: "Lost Revenue", value: "$420,000" },
+      { label: "Units Returned", value: "3,847" },
+      { label: "Avg Days to Return", value: "8.3 days" },
+    ],
+    text2: "Size guidance data shows this item runs small — 2.3:1 ratio of 'too small' vs 'too large'. 68% of exchanges go up one size.",
+    link: "View Product Card →",
+  },
+  {
+    role: "assistant",
+    text: "2 active actions tied to this product's returns driver:",
+    actions: [
+      { title: "Update size chart — add 'runs small' guidance", status: "In Progress", owner: "Sarah M.", created: "Mar 15" },
+      { title: "Add fit comparison photos to PDP", status: "Not Started", owner: "Unassigned", created: "Mar 22" },
+    ],
+    text2: "No completed actions yet — ROI measurement hasn't begun. The size chart update was started 17 days ago.",
+    link: "View in Actions Module →",
+  },
+];
+
+const RD_CATEGORIES = [
+  { name: "Customer Experience", count: 571, value: "$37.6M" },
+  { name: "Operations", count: 306, value: "$29.7M" },
+  { name: "Assortment", count: 532, value: "$15.5M" },
+  { name: "Size & Fit", count: 440, value: "$12.0M" },
+  { name: "Best Performers", count: 327, value: "$10.5M" },
+  { name: "Product Design", count: 214, value: "$8.4M" },
+  { name: "Product Quality", count: 73, value: "$4.8M" },
+];
+
+const KPI_TILES = [
+  { label: "Items Sold", value: "86.1M", change: "-8%", direction: "down" },
+  { label: "Items Returned", value: "10.7M", change: "+85%", direction: "up" },
+  { label: "Return Rate (V)", value: "12.4%", change: "+101%", direction: "up" },
+  { label: "Return Rate ($)", value: "28.5%", change: "+432%", direction: "up" },
+  { label: "Total Revenue", value: "$7.7B", change: "+3%", direction: "up" },
+  { label: "Lost Revenue", value: "$2.2B", change: "+450%", direction: "up" },
+];
+
+// ============================================================
+// Shared Components
+// ============================================================
+
+function ChatMessage({ msg }) {
+  if (msg.role === "user") {
+    return (
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12, animation: "fadeIn 0.2s ease" }}>
+        <div style={{ background: "#1e40af", color: "#fff", padding: "10px 14px", borderRadius: "16px 16px 4px 16px", maxWidth: "85%", fontSize: 13, lineHeight: 1.5 }}>
+          {msg.text}
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div style={{ display: "flex", justifyContent: "flex-start", marginBottom: 16, animation: "fadeIn 0.3s ease" }}>
+      <div style={{ maxWidth: "92%" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+          <div style={{ width: 22, height: 22, borderRadius: "50%", background: "linear-gradient(135deg, #12123E, #1D99FF)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 700, color: "#fff" }}>C</div>
+          <span style={{ fontSize: 10, color: "#94a3b8", fontWeight: 500 }}>Clarity</span>
+        </div>
+        <div style={{ fontSize: 13, color: "#334155", marginBottom: 8, lineHeight: 1.6 }}>{msg.text}</div>
+        {msg.items && (
+          <div style={{ marginBottom: 8, background: "#f8fafc", borderRadius: 8, padding: "8px 12px", border: "1px solid #f1f5f9" }}>
+            {msg.items.map((item, i) => (
+              <div key={i} style={{ padding: "6px 0", borderBottom: i < msg.items.length - 1 ? "1px solid #e2e8f0" : "none" }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#1e293b" }}>{i + 1}. {item.name}</div>
+                <div style={{ fontSize: 11, color: "#64748b" }}>{item.stats}</div>
+              </div>
+            ))}
+          </div>
+        )}
+        {msg.details && (
+          <div style={{ marginBottom: 8, background: "#f8fafc", borderRadius: 8, padding: "10px 12px", border: "1px solid #f1f5f9" }}>
+            {msg.details.map((d, i) => (
+              <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", borderBottom: i < msg.details.length - 1 ? "1px solid #e2e8f0" : "none" }}>
+                <span style={{ fontSize: 12, color: "#64748b" }}>{d.label}</span>
+                <span style={{ fontSize: 12, fontWeight: 600, color: "#1e293b" }}>{d.value}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        {msg.actions && (
+          <div style={{ marginBottom: 8 }}>
+            {msg.actions.map((a, i) => (
+              <div key={i} style={{ background: "#f8fafc", borderRadius: 8, padding: "10px 12px", border: "1px solid #f1f5f9", marginBottom: 6 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "#1e293b", marginBottom: 4 }}>{a.title}</div>
+                <div style={{ display: "flex", gap: 12, fontSize: 11, color: "#64748b" }}>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                    <span style={{ width: 6, height: 6, borderRadius: "50%", background: a.status === "In Progress" ? "#f59e0b" : "#94a3b8" }}></span>
+                    {a.status}
+                  </span>
+                  <span>{a.owner}</span>
+                  <span>{a.created}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        {msg.text2 && <div style={{ fontSize: 13, color: "#334155", marginBottom: 8, lineHeight: 1.6 }}>{msg.text2}</div>}
+        {msg.link && (
+          <a href="#" onClick={(e) => e.preventDefault()} style={{ fontSize: 12, color: "#1D99FF", textDecoration: "none", fontWeight: 500 }}>{msg.link}</a>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ChatInput({ placeholder, onSend, compact }) {
+  const [value, setValue] = useState("");
+  return (
+    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+      <input
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={(e) => { if (e.key === "Enter" && value.trim()) { onSend(value); setValue(""); } }}
+        placeholder={placeholder || "Ask Clarity anything..."}
+        style={{
+          flex: 1, padding: compact ? "8px 12px" : "10px 14px", border: "1px solid #e2e8f0", borderRadius: 20,
+          fontSize: 13, outline: "none", background: "#fff",
+        }}
+      />
+      <button
+        onClick={() => { if (value.trim()) { onSend(value); setValue(""); } }}
+        style={{
+          width: compact ? 32 : 36, height: compact ? 32 : 36, borderRadius: "50%", border: "none",
+          background: "#1D99FF", color: "#fff", cursor: "pointer", display: "flex",
+          alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0,
+        }}
+      >&#8594;</button>
+    </div>
+  );
+}
+
+function PopOutIcon({ size = 14, color = "#fff" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10 2h4v4" />
+      <path d="M14 2L8 8" />
+      <path d="M12 9v4a1 1 0 01-1 1H3a1 1 0 01-1-1V5a1 1 0 011-1h4" />
+    </svg>
+  );
+}
+
+// Left navigation
+function LeftNav({ activePage, onPageChange, minimized, onToggle }) {
+  const pages = ["Overview", "Returns Drivers", "Actions", "Products", "Data Explorer", "Reports"];
+  const icons = { Overview: "\u{1F4CA}", "Returns Drivers": "\u{1F50D}", Actions: "\u26A1", Products: "\u{1F4E6}", "Data Explorer": "\u{1F4C8}", Reports: "\u{1F4C4}" };
+  return (
+    <div style={{
+      width: minimized ? 56 : 200, background: "#fff", borderRight: "1px solid #e2e8f0",
+      display: "flex", flexDirection: "column", height: "100%", transition: "width 0.2s", flexShrink: 0,
+    }}>
+      <div style={{ padding: minimized ? "16px 10px" : "16px 20px", borderBottom: "1px solid #f1f5f9" }}>
+        <div style={{ width: 32, height: 32, borderRadius: 8, background: "#12123E", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 16, fontWeight: 800 }}>R</div>
+      </div>
+      <div style={{ flex: 1, padding: "8px 0", overflow: "auto" }}>
+        {pages.map((pg) => (
+          <button key={pg} onClick={() => onPageChange(pg)}
+            style={{
+              display: "flex", alignItems: "center", gap: 8, width: "100%",
+              padding: minimized ? "10px" : "10px 20px", border: "none", cursor: "pointer",
+              background: activePage === pg ? "#eff6ff" : "transparent",
+              color: activePage === pg ? "#1D99FF" : "#475569",
+              fontSize: 13, fontWeight: activePage === pg ? 600 : 400,
+              textAlign: "left", transition: "all 0.15s",
+              justifyContent: minimized ? "center" : "flex-start",
+            }}>
+            <span style={{ fontSize: 14 }}>{icons[pg]}</span>
+            {!minimized && pg}
+          </button>
+        ))}
+      </div>
+      <div style={{ borderTop: "1px solid #f1f5f9", padding: "8px 0" }}>
+        <button onClick={onToggle}
+          style={{
+            display: "flex", alignItems: "center", gap: 8, width: "100%",
+            padding: minimized ? "10px" : "10px 20px", border: "none", cursor: "pointer",
+            background: "transparent", color: "#94a3b8", fontSize: 12,
+            textAlign: "left", justifyContent: minimized ? "center" : "flex-start",
+          }}>
+          <span>{minimized ? "\u2192" : "\u2190"}</span>
+          {!minimized && "Minimize"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Dashboard content
+function DashboardContent() {
+  return (
+    <div style={{ padding: 24, overflow: "auto", flex: 1 }}>
+      <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap", alignItems: "center" }}>
+        {["All Brands", "All Regions", "All Channels", "All Departments", "Rolling 3 Months"].map((f) => (
+          <select key={f} style={{ padding: "6px 12px", border: "1px solid #e2e8f0", borderRadius: 6, fontSize: 12, color: "#475569", background: "#fff", cursor: "pointer" }}>
+            <option>{f}</option>
+          </select>
+        ))}
+        <button style={{ padding: "6px 16px", background: "#12123E", color: "#fff", border: "none", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Apply Filters</button>
+        <button style={{ padding: "6px 16px", background: "#fff", color: "#475569", border: "1px solid #e2e8f0", borderRadius: 6, fontSize: 12, cursor: "pointer" }}>Reset</button>
+      </div>
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 12 }}>
+          <span style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>Returns Drivers</span>
+          <span style={{ fontSize: 12, color: "#64748b" }}>Total Revenue Opportunity: <strong style={{ color: "#0f172a" }}>$55.8M</strong></span>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8, marginBottom: 8 }}>
+          {RD_CATEGORIES.slice(0, 5).map((cat) => (
+            <div key={cat.name} style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, padding: "12px 14px", cursor: "pointer", transition: "border-color 0.15s" }}
+              onMouseEnter={(e) => e.currentTarget.style.borderColor = "#1D99FF"}
+              onMouseLeave={(e) => e.currentTarget.style.borderColor = "#e2e8f0"}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: 4 }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: "#334155" }}>{cat.name}</span>
+                <span style={{ fontSize: 10, background: "#e2e8f0", color: "#475569", padding: "1px 6px", borderRadius: 4, fontWeight: 600 }}>{cat.count}</span>
+              </div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#1D99FF" }}>{cat.value}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+          {RD_CATEGORIES.slice(5).map((cat) => (
+            <div key={cat.name} style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, padding: "12px 14px", cursor: "pointer" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: 4 }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: "#334155" }}>{cat.name}</span>
+                <span style={{ fontSize: 10, background: "#e2e8f0", color: "#475569", padding: "1px 6px", borderRadius: 4, fontWeight: 600 }}>{cat.count}</span>
+              </div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#1D99FF" }}>{cat.value}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 8, marginBottom: 20 }}>
+        {KPI_TILES.map((kpi) => (
+          <div key={kpi.label} style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, padding: "14px" }}>
+            <div style={{ fontSize: 11, color: "#64748b", marginBottom: 4 }}>{kpi.label}</div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: "#0f172a" }}>{kpi.value}</div>
+            <div style={{ fontSize: 11, color: kpi.direction === "down" ? "#16a34a" : "#dc2626", marginTop: 2 }}>{kpi.change} from last year</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ background: "#f5f3ff", border: "1px solid #e9e5ff", borderRadius: 8, padding: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+          <span style={{ fontSize: 14 }}>&#10024;</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: "#5b21b6" }}>AI Returns Summary</span>
+        </div>
+        <div style={{ fontSize: 12, color: "#475569", lineHeight: 1.6 }}>
+          The return rate increased 432% year-over-year, reaching 28.5% and contributing to a 450% increase in lost revenue to $2.2 billion, despite a 3% rise in total revenue. This significant increase was primarily driven by a rise in the US region, from 4.9% to 29.2%.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// POP-OUT WINDOW HTML GENERATOR
+// ============================================================
+
+function generatePopoutHTML(messages, page, contextEnabled) {
+  const messagesJSON = JSON.stringify(messages);
+  return `<!DOCTYPE html>
+<html><head>
+<meta charset="UTF-8">
+<title>Returnalyze Clarity</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #fff; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+  .msg-enter { animation: fadeIn 0.25s ease; }
+  input:focus { outline: none; border-color: #1D99FF !important; }
+  button { font-family: inherit; }
+</style>
+</head><body>
+<div id="popout-root"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"><\/script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"><\/script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"><\/script>
+<script type="text/babel">
+const { useState, useRef, useEffect } = React;
+
+const RESPONSES = ${JSON.stringify(SAMPLE_RESPONSES)};
+const SUGGESTED = ${JSON.stringify(SUGGESTED_QUESTIONS)};
+const initMessages = ${messagesJSON};
+const initPage = "${page}";
+const initContext = ${contextEnabled};
+
+function ChatMessage({ msg }) {
+  if (msg.role === "user") {
+    return React.createElement("div", { className: "msg-enter", style: { display: "flex", justifyContent: "flex-end", marginBottom: 12 } },
+      React.createElement("div", { style: { background: "#1e40af", color: "#fff", padding: "10px 14px", borderRadius: "16px 16px 4px 16px", maxWidth: "82%", fontSize: 13, lineHeight: 1.5 } }, msg.text)
+    );
+  }
+  const children = [];
+  children.push(React.createElement("div", { key: "av", style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 6 } },
+    React.createElement("div", { style: { width: 22, height: 22, borderRadius: "50%", background: "linear-gradient(135deg, #12123E, #1D99FF)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 700, color: "#fff" } }, "C"),
+    React.createElement("span", { style: { fontSize: 10, color: "#94a3b8", fontWeight: 500 } }, "Clarity")
+  ));
+  if (msg.text) children.push(React.createElement("div", { key: "txt", style: { fontSize: 13, color: "#334155", marginBottom: 8, lineHeight: 1.6 } }, msg.text));
+  if (msg.items) {
+    children.push(React.createElement("div", { key: "items", style: { marginBottom: 8, background: "#f8fafc", borderRadius: 8, padding: "8px 12px", border: "1px solid #f1f5f9" } },
+      msg.items.map(function(item, i) {
+        return React.createElement("div", { key: i, style: { padding: "6px 0", borderBottom: i < msg.items.length - 1 ? "1px solid #e2e8f0" : "none" } },
+          React.createElement("div", { style: { fontSize: 13, fontWeight: 600, color: "#1e293b" } }, (i+1) + ". " + item.name),
+          React.createElement("div", { style: { fontSize: 11, color: "#64748b" } }, item.stats)
+        );
+      })
+    ));
+  }
+  if (msg.details) {
+    children.push(React.createElement("div", { key: "det", style: { marginBottom: 8, background: "#f8fafc", borderRadius: 8, padding: "10px 12px", border: "1px solid #f1f5f9" } },
+      msg.details.map(function(d, i) {
+        return React.createElement("div", { key: i, style: { display: "flex", justifyContent: "space-between", padding: "4px 0", borderBottom: i < msg.details.length - 1 ? "1px solid #e2e8f0" : "none" } },
+          React.createElement("span", { style: { fontSize: 12, color: "#64748b" } }, d.label),
+          React.createElement("span", { style: { fontSize: 12, fontWeight: 600, color: "#1e293b" } }, d.value)
+        );
+      })
+    ));
+  }
+  if (msg.actions) {
+    children.push(React.createElement("div", { key: "acts", style: { marginBottom: 8 } },
+      msg.actions.map(function(a, i) {
+        return React.createElement("div", { key: i, style: { background: "#f8fafc", borderRadius: 8, padding: "10px 12px", border: "1px solid #f1f5f9", marginBottom: 6 } },
+          React.createElement("div", { style: { fontSize: 12, fontWeight: 600, color: "#1e293b", marginBottom: 4 } }, a.title),
+          React.createElement("div", { style: { display: "flex", gap: 12, fontSize: 11, color: "#64748b" } },
+            React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 4 } },
+              React.createElement("span", { style: { width: 6, height: 6, borderRadius: "50%", display: "inline-block", background: a.status === "In Progress" ? "#f59e0b" : "#94a3b8" } }),
+              " " + a.status
+            ),
+            React.createElement("span", null, a.owner),
+            React.createElement("span", null, a.created)
+          )
+        );
+      })
+    ));
+  }
+  if (msg.text2) children.push(React.createElement("div", { key: "txt2", style: { fontSize: 13, color: "#334155", marginBottom: 8, lineHeight: 1.6 } }, msg.text2));
+  if (msg.link) children.push(React.createElement("a", { key: "lnk", href: "#", onClick: function(e) { e.preventDefault(); }, style: { fontSize: 12, color: "#1D99FF", textDecoration: "none", fontWeight: 500 } }, msg.link));
+  return React.createElement("div", { className: "msg-enter", style: { display: "flex", justifyContent: "flex-start", marginBottom: 16 } },
+    React.createElement("div", { style: { maxWidth: "92%" } }, children)
+  );
+}
+
+function PopoutApp() {
+  const [messages, setMessages] = useState(initMessages);
+  const [currentPage, setCurrentPage] = useState(initPage);
+  const [ctxOn, setCtxOn] = useState(initContext);
+  const [responseIdx, setResponseIdx] = useState(Math.min(initMessages.filter(function(m) { return m.role === "user"; }).length, RESPONSES.length));
+  const chatEnd = useRef(null);
+  const [activeTab, setActiveTab] = useState("current");
+
+  useEffect(function() { chatEnd.current && chatEnd.current.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+
+  // Listen for page changes from parent
+  useEffect(function() {
+    function handler(e) {
+      if (e.data && e.data.type === "PAGE_CHANGE") {
+        setCurrentPage(e.data.page);
+      }
+      if (e.data && e.data.type === "POPIN_REQUEST") {
+        // Send state back and close
+        window.opener && window.opener.postMessage({ type: "POPIN_STATE", messages: messages, responseIdx: responseIdx }, "*");
+        window.close();
+      }
+    }
+    window.addEventListener("message", handler);
+    return function() { window.removeEventListener("message", handler); };
+  }, [messages, responseIdx]);
+
+  // Notify parent we're alive
+  useEffect(function() {
+    window.opener && window.opener.postMessage({ type: "POPOUT_READY" }, "*");
+    // On close, notify parent
+    window.addEventListener("beforeunload", function() {
+      window.opener && window.opener.postMessage({ type: "POPOUT_CLOSED", messages: messages, responseIdx: responseIdx }, "*");
+    });
+  }, []);
+
+  function sendMessage(text) {
+    var next = messages.concat([{ role: "user", text: text }]);
+    if (responseIdx < RESPONSES.length) {
+      next = next.concat([RESPONSES[responseIdx]]);
+      setResponseIdx(responseIdx + 1);
+    } else {
+      next = next.concat([{ role: "assistant", text: "I can help you explore that further. What specific aspect would you like to dive into?" }]);
+    }
+    setMessages(next);
+  }
+
+  function handlePopIn() {
+    window.opener && window.opener.postMessage({ type: "POPIN_STATE", messages: messages, responseIdx: responseIdx }, "*");
+    window.close();
+  }
+
+  var questions = SUGGESTED[currentPage] || SUGGESTED["Overview"];
+
+  return React.createElement("div", { style: { display: "flex", flexDirection: "column", height: "100vh" } },
+    // Title bar
+    React.createElement("div", { style: { padding: "11px 16px", background: "linear-gradient(135deg, #12123E, #1a1a5e)", color: "#fff", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0, WebkitAppRegion: "drag" } },
+      React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } },
+        React.createElement("div", { style: { width: 28, height: 28, borderRadius: 8, background: "rgba(255,255,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 800, color: "#fff" } }, "R"),
+        React.createElement("div", null,
+          React.createElement("div", { style: { fontSize: 14, fontWeight: 700 } }, "Returnalyze Clarity"),
+          React.createElement("div", { style: { fontSize: 10, opacity: 0.65 } }, "Pop-Out Window")
+        )
+      ),
+      React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, WebkitAppRegion: "no-drag" } },
+        // Pop-in button
+        React.createElement("button", {
+          onClick: handlePopIn,
+          title: "Return to inline bubble",
+          style: { background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.2)", color: "#fff", cursor: "pointer", width: 28, height: 28, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11 },
+          onMouseEnter: function(e) { e.currentTarget.style.background = "rgba(255,255,255,0.25)"; },
+          onMouseLeave: function(e) { e.currentTarget.style.background = "rgba(255,255,255,0.12)"; }
+        },
+          React.createElement("svg", { width: 14, height: 14, viewBox: "0 0 16 16", fill: "none", stroke: "#fff", strokeWidth: "1.5", strokeLinecap: "round", strokeLinejoin: "round" },
+            React.createElement("path", { d: "M6 10L2 6" }),
+            React.createElement("path", { d: "M2 10h4V6" }),
+            React.createElement("path", { d: "M14 2H8a1 1 0 00-1 1v4" }),
+            React.createElement("path", { d: "M12 9v4a1 1 0 01-1 1H3a1 1 0 01-1-1v-1" })
+          )
+        ),
+        // Close
+        React.createElement("button", {
+          onClick: function() { window.close(); },
+          style: { background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.2)", color: "#fff", cursor: "pointer", width: 28, height: 28, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 },
+          onMouseEnter: function(e) { e.currentTarget.style.background = "rgba(239,68,68,0.7)"; },
+          onMouseLeave: function(e) { e.currentTarget.style.background = "rgba(255,255,255,0.12)"; }
+        }, "\\u2715")
+      )
+    ),
+
+    // Context bar with live sync
+    React.createElement("div", { style: { padding: "8px 16px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: 8, background: "#fafbfc", flexShrink: 0 } },
+      React.createElement("span", { style: { fontSize: 11, color: "#64748b" } }, "Context:"),
+      React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 5, padding: "2px 10px", background: ctxOn ? "#eff6ff" : "#f1f5f9", border: "1px solid " + (ctxOn ? "#bfdbfe" : "#e2e8f0"), borderRadius: 10, fontSize: 10, color: ctxOn ? "#1D99FF" : "#64748b" } },
+        ctxOn ? React.createElement("span", { style: { width: 5, height: 5, borderRadius: "50%", background: "#1D99FF", display: "inline-block", animation: "pulse 2s infinite" } }) : null,
+        "\\uD83D\\uDCC4 " + currentPage
+      ),
+      React.createElement("div", { style: { marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 } },
+        React.createElement("span", { style: { fontSize: 10, color: ctxOn ? "#1D99FF" : "#94a3b8" } }, ctxOn ? "Live sync" : "General"),
+        React.createElement("button", {
+          onClick: function() { setCtxOn(!ctxOn); },
+          style: { width: 32, height: 16, borderRadius: 8, border: "none", background: ctxOn ? "#1D99FF" : "#cbd5e1", cursor: "pointer", position: "relative", flexShrink: 0 }
+        },
+          React.createElement("div", { style: { width: 12, height: 12, borderRadius: "50%", background: "#fff", position: "absolute", top: 2, left: ctxOn ? 18 : 2, transition: "left 0.2s", boxShadow: "0 1px 2px rgba(0,0,0,0.2)" } })
+        )
+      )
+    ),
+
+    // Tabs
+    React.createElement("div", { style: { display: "flex", borderBottom: "1px solid #f1f5f9", flexShrink: 0 } },
+      React.createElement("button", {
+        onClick: function() { setActiveTab("current"); },
+        style: { flex: 1, padding: "9px", fontSize: 11, fontWeight: 600, color: activeTab === "current" ? "#1D99FF" : "#94a3b8", background: activeTab === "current" ? "#fff" : "#fafbfc", border: "none", borderBottom: activeTab === "current" ? "2px solid #1D99FF" : "2px solid transparent", cursor: "pointer" }
+      }, "Current Chat"),
+      React.createElement("button", {
+        onClick: function() { setActiveTab("history"); },
+        style: { flex: 1, padding: "9px", fontSize: 11, fontWeight: 500, color: activeTab === "history" ? "#1D99FF" : "#94a3b8", background: activeTab === "history" ? "#fff" : "#fafbfc", border: "none", borderBottom: activeTab === "history" ? "2px solid #1D99FF" : "2px solid transparent", cursor: "pointer" }
+      }, "History")
+    ),
+
+    // Messages
+    React.createElement("div", { style: { flex: 1, overflow: "auto", padding: "16px 20px" } },
+      activeTab === "history"
+        ? React.createElement("div", { style: { textAlign: "center", padding: "40px 20px", color: "#94a3b8" } },
+            React.createElement("div", { style: { fontSize: 32, marginBottom: 8 } }, "\\uD83D\\uDCAC"),
+            React.createElement("div", { style: { fontSize: 13, fontWeight: 500 } }, "Conversation History"),
+            React.createElement("div", { style: { fontSize: 12, marginTop: 4 } }, "Previous sessions will appear here")
+          )
+        : messages.length === 0
+          ? React.createElement("div", null,
+              React.createElement("div", { style: { textAlign: "center", marginBottom: 24, marginTop: 20 } },
+                React.createElement("div", { style: { width: 52, height: 52, borderRadius: 16, background: "linear-gradient(135deg, #12123E, #1D99FF)", display: "inline-flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 22, fontWeight: 800, marginBottom: 12 } }, "R"),
+                React.createElement("div", { style: { fontSize: 16, fontWeight: 700, color: "#0f172a" } }, "Ask Clarity"),
+                React.createElement("div", { style: { fontSize: 13, color: "#64748b", marginTop: 4 } }, "Ask anything about your returns data")
+              ),
+              React.createElement("div", { style: { fontSize: 10, fontWeight: 600, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 10 } }, "Suggested for " + currentPage),
+              questions.map(function(q, i) {
+                return React.createElement("button", {
+                  key: i,
+                  onClick: function() { sendMessage(q); },
+                  style: { display: "block", width: "100%", textAlign: "left", padding: "11px 14px", background: "#f8fafc", border: "1px solid #f1f5f9", borderRadius: 10, fontSize: 13, color: "#475569", cursor: "pointer", marginBottom: 8, lineHeight: 1.4, transition: "all 0.15s" },
+                  onMouseEnter: function(e) { e.currentTarget.style.borderColor = "#1D99FF"; e.currentTarget.style.color = "#1D99FF"; },
+                  onMouseLeave: function(e) { e.currentTarget.style.borderColor = "#f1f5f9"; e.currentTarget.style.color = "#475569"; }
+                }, q);
+              })
+            )
+          : messages.map(function(msg, i) { return React.createElement(ChatMessage, { key: i, msg: msg }); }),
+      React.createElement("div", { ref: chatEnd })
+    ),
+
+    // Input
+    React.createElement("div", { style: { padding: "12px 20px", borderTop: "1px solid #f1f5f9", background: "#fff", flexShrink: 0 } },
+      React.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center" } },
+        React.createElement("input", {
+          id: "popout-input",
+          placeholder: "Ask Clarity anything...",
+          style: { flex: 1, padding: "10px 14px", border: "1px solid #e2e8f0", borderRadius: 20, fontSize: 13, outline: "none", background: "#fff" },
+          onKeyDown: function(e) { if (e.key === "Enter" && e.target.value.trim()) { sendMessage(e.target.value); e.target.value = ""; } }
+        }),
+        React.createElement("button", {
+          onClick: function() { var inp = document.getElementById("popout-input"); if (inp.value.trim()) { sendMessage(inp.value); inp.value = ""; } },
+          style: { width: 36, height: 36, borderRadius: "50%", border: "none", background: "#1D99FF", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }
+        }, "\\u2192")
+      )
+    )
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("popout-root")).render(React.createElement(PopoutApp));
+<\/script>
+</body></html>`;
+}
+
+// ============================================================
+// Main App
+// ============================================================
+function App() {
+  const [bubbleOpen, setBubbleOpen] = useState(false);
+  const [poppedOut, setPoppedOut] = useState(false);
+  const [navMin, setNavMin] = useState(false);
+  const [messages, setMessages] = useState([]);
+  const [page, setPage] = useState("Overview");
+  const [contextEnabled, setContextEnabled] = useState(true);
+  const [responseIdx, setResponseIdx] = useState(0);
+  const popoutRef = useRef(null);
+  const chatEndRef = useRef(null);
+
+  const sendMessage = useCallback((text) => {
+    const next = [...messages, { role: "user", text }];
+    if (responseIdx < SAMPLE_RESPONSES.length) {
+      next.push(SAMPLE_RESPONSES[responseIdx]);
+      setResponseIdx(responseIdx + 1);
+    } else {
+      next.push({ role: "assistant", text: "I can help you explore that further. What specific aspect would you like to dive into?" });
+    }
+    setMessages(next);
+  }, [messages, responseIdx]);
+
+  // Scroll chat
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  // Send page changes to pop-out window
+  useEffect(() => {
+    if (popoutRef.current && !popoutRef.current.closed) {
+      popoutRef.current.postMessage({ type: "PAGE_CHANGE", page }, "*");
+    }
+  }, [page]);
+
+  // Listen for messages from pop-out
+  useEffect(() => {
+    function handler(e) {
+      if (e.data?.type === "POPOUT_READY") {
+        // Pop-out is alive
+      }
+      if (e.data?.type === "POPOUT_CLOSED") {
+        setPoppedOut(false);
+        if (e.data.messages) {
+          setMessages(e.data.messages);
+          setResponseIdx(e.data.responseIdx || 0);
+        }
+      }
+      if (e.data?.type === "POPIN_STATE") {
+        setPoppedOut(false);
+        setBubbleOpen(true);
+        if (e.data.messages) {
+          setMessages(e.data.messages);
+          setResponseIdx(e.data.responseIdx || 0);
+        }
+      }
+    }
+    window.addEventListener("message", handler);
+    return () => window.removeEventListener("message", handler);
+  }, []);
+
+  // Check if popup was closed externally
+  useEffect(() => {
+    if (!poppedOut) return;
+    const interval = setInterval(() => {
+      if (popoutRef.current && popoutRef.current.closed) {
+        setPoppedOut(false);
+      }
+    }, 500);
+    return () => clearInterval(interval);
+  }, [poppedOut]);
+
+  const handlePopOut = () => {
+    const html = generatePopoutHTML(messages, page, contextEnabled);
+    const blob = new Blob([html], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+
+    const screenLeft = window.screenX || window.screenLeft;
+    const screenTop = window.screenY || window.screenTop;
+    const popX = screenLeft + window.innerWidth + 10;
+    const popY = screenTop + 40;
+
+    const popup = window.open(
+      url,
+      "ClarityPopout",
+      `width=420,height=640,left=${popX},top=${popY},menubar=no,toolbar=no,location=no,status=no,resizable=yes,scrollbars=no`
+    );
+
+    if (popup) {
+      popoutRef.current = popup;
+      setPoppedOut(true);
+      setBubbleOpen(false);
+      // Clean up blob URL after load
+      popup.addEventListener("load", () => URL.revokeObjectURL(url));
+    } else {
+      alert("Pop-up blocked! Please allow pop-ups for this site to use the pop-out feature.");
+    }
+  };
+
+  const handlePopIn = () => {
+    if (popoutRef.current && !popoutRef.current.closed) {
+      popoutRef.current.postMessage({ type: "POPIN_REQUEST" }, "*");
+    }
+  };
+
+  return (
+    <div style={{ height: "100vh", display: "flex", flexDirection: "column" }}>
+      {/* Top bar */}
+      <div style={{ background: "#12123E", padding: "8px 24px", display: "flex", gap: 16, alignItems: "center", flexShrink: 0 }}>
+        <span style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>Clarity AI Prototype</span>
+        <span style={{ fontSize: 11, color: "rgba(255,255,255,0.5)" }}>|</span>
+        <span style={{ fontSize: 11, color: "rgba(255,255,255,0.6)" }}>
+          {poppedOut
+            ? "Pop-out window is active. Navigate the app freely — Clarity maintains context."
+            : "Click the bubble (bottom-right) to open. Pop-out icon detaches to a separate window."}
+        </span>
+        {poppedOut && (
+          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#22c55e", display: "inline-block", animation: "pulseGlow 2s infinite" }}></span>
+            <span style={{ fontSize: 11, color: "#22c55e", fontWeight: 600 }}>Pop-out active</span>
+            <button onClick={handlePopIn}
+              style={{ padding: "3px 10px", background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 5, color: "#fff", fontSize: 11, cursor: "pointer" }}>
+              Pop In
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Main layout */}
+      <div style={{ flex: 1, display: "flex", overflow: "hidden", position: "relative" }}>
+        <LeftNav activePage={page} onPageChange={setPage} minimized={navMin} onToggle={() => setNavMin(!navMin)} />
+
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+          <div style={{ padding: "16px 24px 0", background: "#f8fafc" }}>
+            <h1 style={{ fontSize: 22, fontWeight: 700, color: "#0f172a" }}>Welcome, Michael &#128075;</h1>
+          </div>
+          <DashboardContent />
+        </div>
+
+        {/* ==================== */}
+        {/* FLOATING BUBBLE      */}
+        {/* ==================== */}
+        {!bubbleOpen && !poppedOut && (
+          <button onClick={() => setBubbleOpen(true)}
+            style={{
+              position: "absolute", bottom: 24, right: 24, width: 56, height: 56,
+              borderRadius: "50%", background: "linear-gradient(135deg, #12123E, #1D99FF)", color: "#fff", border: "none",
+              cursor: "pointer", boxShadow: "0 4px 20px rgba(18,18,62,0.35)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 22, transition: "transform 0.15s, box-shadow 0.15s", zIndex: 20,
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.1)"; e.currentTarget.style.boxShadow = "0 6px 28px rgba(18,18,62,0.45)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.boxShadow = "0 4px 20px rgba(18,18,62,0.35)"; }}>
+            &#10024;
+          </button>
+        )}
+
+        {/* Pop-out active indicator on bubble position */}
+        {poppedOut && (
+          <div style={{
+            position: "absolute", bottom: 24, right: 24, width: 48, height: 48,
+            borderRadius: "50%", background: "#fff", border: "2px solid #1D99FF",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            zIndex: 20, boxShadow: "0 2px 12px rgba(29,153,255,0.15)",
+            animation: "pulseGlow 2s infinite",
+          }}>
+            <svg width={18} height={18} viewBox="0 0 16 16" fill="none" stroke="#1D99FF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M10 2h4v4" />
+              <path d="M14 2L8 8" />
+              <path d="M12 9v4a1 1 0 01-1 1H3a1 1 0 01-1-1V5a1 1 0 011-1h4" />
+            </svg>
+          </div>
+        )}
+
+        {/* ==================== */}
+        {/* INLINE BUBBLE CHAT   */}
+        {/* ==================== */}
+        {bubbleOpen && !poppedOut && (
+          <div style={{
+            position: "absolute", bottom: 24, right: 24, width: 390, height: 540,
+            background: "#fff", borderRadius: 16, boxShadow: "0 8px 40px rgba(0,0,0,0.18)",
+            display: "flex", flexDirection: "column", overflow: "hidden", zIndex: 20,
+            border: "1px solid #e2e8f0", animation: "fadeIn 0.2s ease",
+          }}>
+            {/* Header */}
+            <div style={{
+              padding: "12px 14px", background: "linear-gradient(135deg, #12123E, #1a1a5e)", color: "#fff",
+              display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0,
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ width: 28, height: 28, borderRadius: 8, background: "rgba(255,255,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 800 }}>R</div>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700 }}>Returnalyze Clarity</div>
+                  <div style={{ fontSize: 10, opacity: 0.65 }}>Conversational Analytics</div>
+                </div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                {/* POP OUT */}
+                <button onClick={handlePopOut} title="Open in separate window"
+                  style={{
+                    background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.2)",
+                    color: "#fff", cursor: "pointer", width: 30, height: 30, borderRadius: 6,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    transition: "background 0.15s",
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.25)"}
+                  onMouseLeave={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.12)"}>
+                  <PopOutIcon size={14} color="#fff" />
+                </button>
+                {/* CLOSE */}
+                <button onClick={() => setBubbleOpen(false)}
+                  style={{
+                    background: "rgba(255,255,255,0.12)", border: "1px solid rgba(255,255,255,0.2)",
+                    color: "#fff", cursor: "pointer", width: 30, height: 30, borderRadius: 6,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: 16, transition: "background 0.15s",
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.25)"}
+                  onMouseLeave={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.12)"}>
+                  &#10005;
+                </button>
+              </div>
+            </div>
+
+            {/* Context bar */}
+            <div style={{ padding: "7px 14px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", gap: 8, background: "#fafbfc", flexShrink: 0 }}>
+              <span style={{ fontSize: 11, color: "#64748b" }}>Context:</span>
+              <span style={{
+                display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px",
+                background: contextEnabled ? "#eff6ff" : "#f1f5f9",
+                border: `1px solid ${contextEnabled ? "#bfdbfe" : "#e2e8f0"}`,
+                borderRadius: 10, fontSize: 10, color: contextEnabled ? "#1D99FF" : "#64748b",
+              }}>
+                &#128196; {page}
+              </span>
+              <button onClick={() => setContextEnabled(!contextEnabled)}
+                style={{
+                  width: 32, height: 16, borderRadius: 8, border: "none",
+                  background: contextEnabled ? "#1D99FF" : "#cbd5e1", cursor: "pointer",
+                  position: "relative", marginLeft: "auto", flexShrink: 0,
+                }}>
+                <div style={{
+                  width: 12, height: 12, borderRadius: "50%", background: "#fff",
+                  position: "absolute", top: 2, left: contextEnabled ? 18 : 2,
+                  transition: "left 0.2s", boxShadow: "0 1px 2px rgba(0,0,0,0.2)",
+                }} />
+              </button>
+            </div>
+
+            {/* Chat area */}
+            <div style={{ flex: 1, overflow: "auto", padding: "12px 14px" }}>
+              {messages.length === 0 && (
+                <div>
+                  <div style={{ textAlign: "center", marginBottom: 16, marginTop: 12 }}>
+                    <div style={{ width: 44, height: 44, borderRadius: 14, background: "linear-gradient(135deg, #12123E, #1D99FF)", display: "inline-flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 18, fontWeight: 800, marginBottom: 8 }}>R</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a" }}>Ask Clarity</div>
+                    <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>Ask anything about your returns data</div>
+                  </div>
+                  <div style={{ fontSize: 10, fontWeight: 600, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>
+                    Suggested for {page}
+                  </div>
+                  {(SUGGESTED_QUESTIONS[page] || SUGGESTED_QUESTIONS.Overview).map((q, i) => (
+                    <button key={i} onClick={() => sendMessage(q)}
+                      style={{
+                        display: "block", width: "100%", textAlign: "left", padding: "9px 12px",
+                        background: "#f8fafc", border: "1px solid #f1f5f9", borderRadius: 8,
+                        fontSize: 12, color: "#475569", cursor: "pointer", marginBottom: 5,
+                        transition: "all 0.15s", lineHeight: 1.4,
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#1D99FF"; e.currentTarget.style.color = "#1D99FF"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#f1f5f9"; e.currentTarget.style.color = "#475569"; }}>
+                      {q}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {messages.map((msg, i) => <ChatMessage key={i} msg={msg} />)}
+              <div ref={chatEndRef} />
+            </div>
+
+            {/* Input */}
+            <div style={{ padding: "10px 14px", borderTop: "1px solid #f1f5f9", background: "#fff", flexShrink: 0 }}>
+              <ChatInput placeholder="Ask Clarity anything..." onSend={sendMessage} compact />
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
